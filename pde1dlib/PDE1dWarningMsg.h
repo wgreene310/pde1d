@@ -13,26 +13,4 @@
 // You should have received a copy of the GNU General Public License along with
 // this program; if not, see <http://www.gnu.org/licenses/>.
 
-#ifndef PDE1dOptions_h
-#define PDE1dOptions_h
-
-class PDE1dOptions
-{
-public:
-  PDE1dOptions(double relTol = 1e-3, double absTol = 1e-6) :
-    relTol(relTol), absTol(absTol) {
-    vectorizedFuncs = false;
-  }
-  double getRelTol() const { return relTol;  }
-  double getAbsTol() const { return absTol;  }
-  void setRelTol(double tol) { relTol = tol; }
-  void setAbsTol(double tol) { absTol = tol; }
-  bool isVectorized() const { return vectorizedFuncs; }
-  void setVectorized(bool isVec) { vectorizedFuncs = isVec; }
-private:
-  double relTol, absTol;
-  bool vectorizedFuncs;
-};
-
-#endif
-
+void PDE1dWarningMsg(const char *id, const char *msg);

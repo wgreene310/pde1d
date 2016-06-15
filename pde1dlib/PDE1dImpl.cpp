@@ -27,6 +27,8 @@ using std::endl;
 
 #include "PDE1dImpl.h"
 #include "PDE1dOptions.h"
+#include "PDE1dException.h"
+#include "PDE1dWarningMsg.h"
 
 typedef Eigen::Map<Eigen::VectorXd> MapVec;
 typedef Eigen::Map<Eigen::MatrixXd> MapMat;
@@ -34,7 +36,7 @@ typedef Eigen::Map<Eigen::MatrixXd> MapMat;
 #define DEBUG_MATS 0
 
 namespace {
-
+  // shape functions and derivatives for 2-node element
   void shapeLine2(double r, double shp[]) {
     shp[0] = (1 - r) / 2;
     shp[1] = (1 + r) / 2;
@@ -52,7 +54,9 @@ pde(pde), options(options)
 {
   intRule = new GausLegendreIntRule(3);
   mesh = pde.getMesh();
+  checkIncreasing(mesh, 5, "meshPts");
   tspan = pde.getTimeSpan();
+  checkIncreasing(tspan, 6, "timePts");
   numNodes = mesh.size();
   numTimes = tspan.size();
   numDepVars = pde.getNumEquations();
@@ -139,36 +143,28 @@ namespace {
     return 0;
   }
 
-  int check_flag(void *flagvalue, const char *funcname, int opt)
+  void check_flag(const void *flagvalue, const char *funcname, int opt)
   {
-    int *errflag;
 
     /* Check if SUNDIALS function returned NULL pointer - no memory allocated */
     if (opt == 0 && flagvalue == NULL) {
-      fprintf(stderr,
+      char msg[256];
+      sprintf(msg,
         "\nSUNDIALS_ERROR: %s() failed - returned NULL pointer\n\n",
         funcname);
-      return(1);
+      throw PDE1dException("pde1d:sundials_mem_alloc", msg);
     }
     else if (opt == 1) {
       /* Check if flag < 0 */
-      errflag = (int *)flagvalue;
+      int *errflag = (int *)flagvalue;
       if (*errflag < 0) {
-        fprintf(stderr,
+        char msg[256];
+        sprintf(msg,
           "\nSUNDIALS_ERROR: %s() failed with flag = %d\n\n",
           funcname, *errflag);
-        return(1);
+        throw PDE1dException("pde1d:sundials_error", msg);
       }
     }
-    else if (opt == 2 && flagvalue == NULL) {
-      /* Check if function returned NULL pointer - no memory allocated */
-      fprintf(stderr,
-        "\nMEMORY_ERROR: %s() failed - returned NULL pointer\n\n",
-        funcname);
-      return(1);
-    }
-
-    return(0);
   }
 
   template<class T>
@@ -193,13 +189,13 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   int neqImpl = numFEMEqns;
   /* Create vectors uu, up, res, constraints, id. */
   N_Vector uu = N_VNew_Serial(neqImpl);
-  if (check_flag((void *)uu, "N_VNew_Serial", 0)) return(1);
+  check_flag(uu, "N_VNew_Serial", 0);
   N_Vector up = N_VNew_Serial(neqImpl);
-  if (check_flag((void *)up, "N_VNew_Serial", 0)) return(1);
+  check_flag(up, "N_VNew_Serial", 0);
   N_Vector res = N_VNew_Serial(neqImpl);
-  if (check_flag((void *)res, "N_VNew_Serial", 0)) return(1);
+  check_flag(res, "N_VNew_Serial", 0);
   N_Vector id = N_VNew_Serial(neqImpl);
-  if (check_flag((void *)id, "N_VNew_Serial", 0)) return(1);
+  check_flag(id, "N_VNew_Serial", 0);
   double *udata = NV_DATA_S(uu);
   double *updata = NV_DATA_S(up);
   MapVec u(udata, neqImpl);
@@ -209,34 +205,39 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
 
   /* Call IDACreate and IDAMalloc to initialize solution */
   void *ida = IDACreate();
-  if (check_flag((void *)ida, "IDACreate", 0)) return(1);
+  check_flag(ida, "IDACreate", 0);
 
   int ier = IDASetUserData(ida, this);
-  if (check_flag(&ier, "IDASetUserData", 1)) return(1);
+  check_flag(&ier, "IDASetUserData", 1);
   ier = IDASetId(ida, id);
-  if (check_flag(&ier, "IDASetId", 1)) return(1);
+  check_flag(&ier, "IDASetId", 1);
   double t0 = 0, tf = .05;
   IDAResFn resFn = resFunc;
   ier = IDAInit(ida, resFn, t0, uu, up);
-  if (check_flag(&ier, "IDAInit", 1)) return(1);
+  check_flag(&ier, "IDAInit", 1);
   const double relTol = options.getRelTol(), absTol = options.getAbsTol();
   ier = IDASStolerances(ida, relTol, absTol);
-  if (check_flag(&ier, "IDASStolerances", 1)) return(1);
+  check_flag(&ier, "IDASStolerances", 1);
   /* Call IDABand to specify the linear solver. */
   int mu = numDepVars, ml = numDepVars;
   ier = IDABand(ida, neqImpl, mu, ml);
-  if (check_flag(&ier, "IDABand", 1)) return(1);
-#if 1
-  /* Call IDACalcIC to correct the initial values. */
+  check_flag(&ier, "IDABand", 1);
+
+  // Call IDACalcIC to correct the initial values. 
   ier = IDACalcIC(ida, IDA_YA_YDP_INIT, tf);
-  if (check_flag(&ier, "IDACalcIC", 1)) return(1);
+  if (ier < 0) {
+    throw PDE1dException("pde1d:consistent_ic",
+      "Unable to calculate a consistent initial solution to the PDE.\n"
+      "Often this is caused by an incorrect specification of the boundary conditions.");
+  }
   N_Vector yy0_mod = N_VNew_Serial(neqImpl);
   N_Vector yp0_mod = N_VNew_Serial(neqImpl);
   ier = IDAGetConsistentIC(ida, yy0_mod, yp0_mod);
-  if (check_flag(&ier, "IDAGetConsistentIC", 1)) return(1);
+  check_flag(&ier, "IDAGetConsistentIC", 1);
   MapVec uMod(NV_DATA_S(yy0_mod), neqImpl);
   if (initConditionsChanged(u, uMod, absTol)) {
-    printf("User-defined initial conditions were changed "
+    PDE1dWarningMsg("pde1d:init_cond_changed",
+   "User-defined initial conditions were changed "
       "to create a consistent solution to the equations at "
       "the initial time.\n");
   }
@@ -247,8 +248,6 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   //resFn(0, yy0_mod, yp0_mod, res, this);
   //print(res, "res");
 #endif
-
-#endif
   
   sol.time(0) = tspan(0);
   MapVec y0Mod(NV_DATA_S(yy0_mod), neqImpl);
@@ -256,7 +255,13 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   for (int i = 1; i < numTimes; i++) {
     double tout=tspan(i), tret;
     ier = IDASolve(ida, tout, &tret, uu, up, IDA_NORMAL);
-    if (check_flag(&ier, "IDASolve", 1)) return(1);
+    if (ier < 0) {
+      char msg[1024];
+      sprintf(msg, "Time integration failed at t=%15.6e before reaching final time.\n"
+        "Often this is caused by one or more dependent variables becoming unbounded.",
+        tret);
+      throw PDE1dException("pde1d:integ_failure", msg);
+    }
     sol.time(i) = tret;
     sol.u.row(i) = u;
   }
@@ -484,4 +489,19 @@ void PDE1dImpl::setAlgVarFlags(N_Vector id)
       iddata[i + rtBcOff] = 0;
   }
   //print(id, "id");
+}
+
+void PDE1dImpl::checkIncreasing(const RealVector &v, 
+  int argNum, const char *argName)
+{
+  for (int i = 1; i < v.size(); i++) {
+    if (v[i] <= v[i - 1]) {
+      char msg[1024];
+      sprintf(msg, "The values in argument number %d (\"%s\") "
+        "must be strictly increasing.\n"
+        "Entry %d is %g but entry %d is %g.",
+        argNum, argName, i, v[i - 1], i + 1, v[i]);
+      throw PDE1dException("pde1d:decreasing_indep_var", msg);
+    }
+  }
 }

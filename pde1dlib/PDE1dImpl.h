@@ -37,6 +37,7 @@ private:
   template<class T, class TR>
   void calcGlobalEqns(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
   void setAlgVarFlags(N_Vector id);
+  void checkIncreasing(const RealVector &v, int argNum, const char *argName);
   PDE1dDefn &pde;
   PDE1dOptions &options;
   GausLegendreIntRule *intRule;
