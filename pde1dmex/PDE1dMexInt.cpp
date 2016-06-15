@@ -172,21 +172,18 @@ void PDE1dMexInt::doMatCallTestX()
 
 }
 
-void PDE1dMexInt::doMatCallTestXX()
-{
-  int numNodes = mesh.size();
-  RealVector ic(numPDE);
-  evalIC(mesh(0), ic);
-  cout << "ic=" << ic << endl;
-}
-
 void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
   RealVector *outArgs[], int nargout)
 {
   int err = mexCallMATLAB(nargout, matOutArgs, nargin,
     const_cast<mxArray**>(inArgs), "feval");
-  if (err)
-    mexErrMsgIdAndTxt("MATLAB:callMatlab:err", "Error in mexCallMATLAB.");
+  if (err) {
+    char msg[1024];
+    std::string funcName = getFuncNameFromHandle(inArgs[0]);
+    sprintf(msg, "An error occurred in the call to user-defined function:\n\"%s\".",
+      funcName.c_str());
+    mexErrMsgIdAndTxt("MATLAB:callMatlab:err", msg);
+  }
   for (int i = 0; i < nargout; i++) {
     mxArray *a = matOutArgs[i];
     if (! a)

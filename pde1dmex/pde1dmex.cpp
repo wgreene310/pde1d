@@ -14,6 +14,7 @@
 // this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include <stdio.h>
+#include <stdexcept>
 
 #include <boost/multi_array.hpp>
 #include <boost/algorithm/string.hpp>
@@ -23,6 +24,8 @@
 #include "PDE1dMexInt.h"
 #include "PDE1dImpl.h"
 #include "PDE1dOptions.h"
+#include "PDE1dException.h"
+#include "PDE1dWarningMsg.h"
 
 typedef double Float;
 
@@ -39,25 +42,37 @@ namespace {
 
   PDE1dOptions getOptions(const mxArray *opts) {
     if (!mxIsStruct(opts))
-      mexErrMsgTxt("The 7th, options argument to " FUNC_NAME
-      " must be a struct.");
+      mexErrMsgIdAndTxt("pde1d:optins_type", 
+      "The 7th, options argument to " FUNC_NAME " must be a struct.");
     PDE1dOptions pdeOpts;
     int n = mxGetNumberOfFields(opts);
     for (int i = 0; i < n; i++) {
       const char *ni = mxGetFieldNameByNumber(opts, i);
       mxArray *val = mxGetFieldByNumber(opts, 0, i);
-      if (boost::iequals(ni, "reltol")) {
+      if (boost::iequals(ni, "reltol")) 
         pdeOpts.setRelTol(mxGetScalar(val));
-      }
-      else if (boost::iequals(ni, "abstol")) {
+      else if (boost::iequals(ni, "abstol"))
         pdeOpts.setAbsTol(mxGetScalar(val));
+      else if (boost::iequals(ni, "vectorized")) {
+        const int buflen = 1024;
+        char buf[buflen];
+        mxGetString(val, buf, buflen);
+        bool isVec;
+        if (boost::iequals(buf, "on"))
+          isVec = true;
+        else if (boost::iequals(buf, "off"))
+          isVec = false;
+        else
+          mexErrMsgIdAndTxt("pde1d:invalidVectorized",
+          "The value of the \"Vectorized\" option must be either \"On\" or \"Off\".");
+        pdeOpts.setVectorized(isVec);
       }
       else {
         char msg[1024];
         sprintf(msg, "The options argument contains the field \"%s\".\n"
           "This is not a currently-supported option and will be ignored.",
           ni);
-        mexWarnMsgIdAndTxt("pdep1:unknown_option", msg);
+        mexWarnMsgIdAndTxt("pde1d:unknown_option", msg);
       }
     }
 
@@ -65,39 +80,59 @@ namespace {
   }
 }
 
+void PDE1dWarningMsg(const char *id, const char *msg) {
+  mexWarnMsgIdAndTxt(id, msg);
+}
+
+// solution = pde1d(cordSysType,pdeFunc,icFunc,bcFunc,meshPts,timePts)
+
 void mexFunction(int nlhs, mxArray*
   plhs[], int nrhs, const mxArray *prhs[])
 {
   if (nrhs != 6 && nrhs != 7)
-    mexErrMsgTxt(FUNC_NAME " requires six or seven input arguments.");
+    mexErrMsgIdAndTxt("pde1d:nrhs", 
+    FUNC_NAME " requires six or seven input arguments.");
 
-  if (mxGetNumberOfElements(prhs[0]) != 1) {
-    mexErrMsgTxt("First argument must be an integer scalar.");
+  const mxArray *pM = prhs[0];
+  if (! mxIsNumeric(pM) || mxGetNumberOfElements(pM) != 1) {
+    mexErrMsgIdAndTxt("pde1d:invalid_m_type", 
+      "First argument must be an integer scalar.");
   }
 
-  int m = (int)mxGetScalar(prhs[0]);
+  int m = (int) mxGetScalar(pM);
   if (m != 0 && m != 1 && m != 2)
-    mexErrMsgTxt("First argument must be either 0, 1, or 2");
+    mexErrMsgIdAndTxt("pde1d:invalid_m_val", 
+    "First argument must be either 0, 1, or 2");
 
   for (int i = 1; i < 4; i++) {
     if (!mxIsFunctionHandle(prhs[i])) {
       char msg[80];
       sprintf(msg, "Argument %d is not a function handle.", i + 1);
-      mexErrMsgTxt(msg);
+      mexErrMsgIdAndTxt("pde1d:arg_not_func", msg);
     }
   }
 
-  if (mxGetNumberOfElements(prhs[4]) < 3)
-    mexErrMsgTxt("Length of argument five, xmesh, must be at least three.");
-  if (mxGetNumberOfElements(prhs[4]) < 3)
-    mexErrMsgTxt("Length of argument siz, tspan, must be at least three.");
+  const mxArray *pX = prhs[4], *pT = prhs[5];
+  if (!mxIsNumeric(pX) || mxIsComplex(pX))
+    mexErrMsgIdAndTxt("pde1d:mesh_type", 
+    "Argument \"meshPts\" must be a real vector.");
+  if (mxGetNumberOfElements(pX) < 3)
+    mexErrMsgIdAndTxt("pde1d:mesh_length", 
+    "Length of argument \"meshPts\", must be at least three.");
+
+  if (!mxIsNumeric(pT) || mxIsComplex(pT))
+    mexErrMsgIdAndTxt("pde1d:time_type", 
+    "Argument \"timePts\" must be a real vector.");
+  if (mxGetNumberOfElements(pT) < 3)
+    mexErrMsgIdAndTxt("pde1d:time_length", 
+    "Length of argument \"timePts\", must be at least three.");
 
   PDE1dOptions opts;
   if (nrhs == 7)
     opts = getOptions(prhs[6]);
 
   if(nlhs != 1)
-    mexErrMsgTxt("pde1d returns only a single matrix.");
+    mexErrMsgIdAndTxt("pde1d:nlhs", "pde1d returns only a single matrix.");
 
   plhs[0] = 0;
 
@@ -113,13 +148,14 @@ void mexFunction(int nlhs, mxArray*
     if (err)
       return;
   }
+  catch (const PDE1dException &ex) {
+    mexErrMsgIdAndTxt(ex.getId(), ex.what());
+  }
   catch (const std::exception &ex) {
-    mexPrintf("Error in pde1d: %s.\n", ex.what());
-    return;
+    mexErrMsgIdAndTxt("pde1d:exception", ex.what());
   }
   catch (...) {
-    mexPrintf("Internal error in pde1d.\n");
-    return;
+    mexErrMsgIdAndTxt("pde1d:internal_err", "Internal error in pde1d.\n");
   }
   //mexPrintf("%d %d %d\n", pdeSol.time.size(), 
   //  pdeSol.u.rows(), pdeSol.u.cols());
