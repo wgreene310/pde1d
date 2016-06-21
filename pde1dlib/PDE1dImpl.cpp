@@ -52,6 +52,8 @@ namespace {
 PDE1dImpl::PDE1dImpl(PDE1dDefn &pde, PDE1dOptions &options) : 
 pde(pde), options(options)
 {
+  uu=up=res=id=yy0_mod=yp0_mod = 0;
+  ida = 0;
   intRule = new GausLegendreIntRule(3);
   mesh = pde.getMesh();
   checkIncreasing(mesh, 5, "meshPts");
@@ -92,6 +94,13 @@ pde(pde), options(options)
 
 PDE1dImpl::~PDE1dImpl()
 {
+  delete uu;
+  delete up;
+  delete res;
+  delete id;
+  delete yy0_mod;
+  delete yp0_mod;
+  delete ida;
   delete intRule;
 }
 
@@ -188,13 +197,13 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
 
   int neqImpl = numFEMEqns;
   /* Create vectors uu, up, res, constraints, id. */
-  N_Vector uu = N_VNew_Serial(neqImpl);
+  uu = N_VNew_Serial(neqImpl);
   check_flag(uu, "N_VNew_Serial", 0);
-  N_Vector up = N_VNew_Serial(neqImpl);
+  up = N_VNew_Serial(neqImpl);
   check_flag(up, "N_VNew_Serial", 0);
-  N_Vector res = N_VNew_Serial(neqImpl);
+  res = N_VNew_Serial(neqImpl);
   check_flag(res, "N_VNew_Serial", 0);
-  N_Vector id = N_VNew_Serial(neqImpl);
+  id = N_VNew_Serial(neqImpl);
   check_flag(id, "N_VNew_Serial", 0);
   double *udata = NV_DATA_S(uu);
   double *updata = NV_DATA_S(up);
@@ -204,7 +213,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   setAlgVarFlags(id);
 
   /* Call IDACreate and IDAMalloc to initialize solution */
-  void *ida = IDACreate();
+  ida = IDACreate();
   check_flag(ida, "IDACreate", 0);
 
   int ier = IDASetUserData(ida, this);
@@ -218,6 +227,8 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   const double relTol = options.getRelTol(), absTol = options.getAbsTol();
   ier = IDASStolerances(ida, relTol, absTol);
   check_flag(&ier, "IDASStolerances", 1);
+  ier = IDASetMaxNumSteps(ida, 10000);
+  check_flag(&ier, "IDASetMaxNumSteps", 1);
   /* Call IDABand to specify the linear solver. */
   int mu = numDepVars, ml = numDepVars;
   ier = IDABand(ida, neqImpl, mu, ml);
@@ -230,12 +241,22 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
       "Unable to calculate a consistent initial solution to the PDE.\n"
       "Often this is caused by an incorrect specification of the boundary conditions.");
   }
-  N_Vector yy0_mod = N_VNew_Serial(neqImpl);
-  N_Vector yp0_mod = N_VNew_Serial(neqImpl);
+  yy0_mod = N_VNew_Serial(neqImpl);
+  check_flag(yy0_mod, "N_VNew_Serial", 0);
+  yp0_mod = N_VNew_Serial(neqImpl);
+  check_flag(yp0_mod, "N_VNew_Serial", 0);
   ier = IDAGetConsistentIC(ida, yy0_mod, yp0_mod);
   check_flag(&ier, "IDAGetConsistentIC", 1);
+#if 0
+  N_Vector diff_vec = N_VNew_Serial(neqImpl);
+  N_VLinearSum(1, uu, -1, yy0_mod, diff_vec);
+  N_Vector unit_vec = N_VNew_Serial(neqImpl);
+  N_VConst(1, unit_vec);
+  double normDiff = N_VWrmsNorm(diff_vec, unit_vec);
+  printf("unit_vec=%12.3e\n", normDiff);
+#endif
   MapVec uMod(NV_DATA_S(yy0_mod), neqImpl);
-  if (initConditionsChanged(u, uMod, absTol)) {
+  if (initConditionsChanged(u, uMod, 100*absTol)) {
     PDE1dWarningMsg("pde1d:init_cond_changed",
    "User-defined initial conditions were changed "
       "to create a consistent solution to the equations at "
