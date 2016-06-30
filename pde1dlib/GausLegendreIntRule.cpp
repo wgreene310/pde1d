@@ -22,8 +22,21 @@
 // http://www.colorado.edu/engineering/CAS/courses.d/AFEM.d/AFEM.AppI.d/AFEM.AppI.pdf
 //
 
-static const double xi2p = sqrt(3.0) / 3;
-static const double xi3p = sqrt(3.0 / 5.);
+/*
+c1 = sqrt(5-c0)/3;
+c2 = sqrt(5+c0)/3;
+w0 = 13*sqrt(70);
+w1 = (322 + w0)/900;
+w2 = (322 - w0)/900;
+%  g5={-Sqrt[5+2*Sqrt[10/7]],-Sqrt[5-2*Sqrt[10/7]],0,
+% Sqrt[5-2*Sqrt[10/7]], Sqrt[5+2*Sqrt[10/7]]}/3,
+% w5={322-13*Sqrt[70],322+13*Sqrt[70],512,
+% 322+13*Sqrt[70],322-13*Sqrt[70]}/900,
+xi = [-c2 -c1 0 c1 c2]; w = [w2 w1 512/900 w1 w2];
+*/
+
+static const double s3o3 = sqrt(3.0) / 3;
+static const double s3o5 = sqrt(3.0 / 5.);
 static const double xi4p0 = 2.0*sqrt(6. / 5.);
 static const double xi4p1 = sqrt((3. - xi4p0) / 7.);
 static const double xi4p2 = sqrt((3. + xi4p0) / 7.);
@@ -39,11 +52,11 @@ static const double wt5p2 = (322. + wt5p0) / 900.;
 
 static GausLegendreIntRule::IRule rule1Pt[] = { 0, 2 };
 static GausLegendreIntRule::IRule rule2Pt[] = {
-    { -xi2p, 1 }, { xi2p, 1 }
+    { -s3o3, 1 }, { s3o3, 1 }
 };
 
 static GausLegendreIntRule::IRule rule3Pt[] = {
-    { -xi3p, 5. / 9. }, { 0., 8. / 9. }, { xi3p, 5. / 9. }
+    { -s3o5, 5. / 9. }, { 0., 8. / 9. }, { s3o5, 5. / 9. }
 };
 static GausLegendreIntRule::IRule rule4Pt[] = {
     { -xi4p2, wt4p2 }, { -xi4p1, wt4p1 }, { xi4p1, wt4p1 }, { xi4p2, wt4p2 }
@@ -53,18 +66,6 @@ static GausLegendreIntRule::IRule rule5Pt[] = {
     { xi5p2, wt5p2 }, { xi5p1, wt5p1 }
 };
 
-/*
-c1 = sqrt(5-c0)/3;
-c2 = sqrt(5+c0)/3;
-w0 = 13*sqrt(70);
-w1 = (322 + w0)/900;
-w2 = (322 - w0)/900;
-%  g5={-Sqrt[5+2*Sqrt[10/7]],-Sqrt[5-2*Sqrt[10/7]],0,
-% Sqrt[5-2*Sqrt[10/7]], Sqrt[5+2*Sqrt[10/7]]}/3,
-% w5={322-13*Sqrt[70],322+13*Sqrt[70],512,
-% 322+13*Sqrt[70],322-13*Sqrt[70]}/900,
-xi = [-c2 -c1 0 c1 c2]; w = [w2 w1 512/900 w1 w2];
-*/
 
 static  GausLegendreIntRule::IRule *rules[] = {
   0, rule1Pt, rule2Pt, rule3Pt, rule4Pt, rule5Pt };

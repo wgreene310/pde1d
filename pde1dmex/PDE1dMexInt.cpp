@@ -120,58 +120,6 @@ RealVector PDE1dMexInt::getMesh() {
 
 RealVector PDE1dMexInt::getTimeSpan() { return tSpan; }
 
-void PDE1dMexInt::doMatCallTest()
-{
-  boost::timer timer;
-  const int numCalls = 1000;
-  mxArray *initCond = 0;
-  const mxArray *funcInp[] = { icfun, xmesh };
-  for (int i = 0; i < numCalls; i++) {
-    int err = mexCallMATLAB(1, &initCond, 2,
-      const_cast<mxArray**>(funcInp), "feval");
-    if (err)
-      mexErrMsgIdAndTxt("MATLAB:filterTriangles:minrhs", "Error in mexCallMATLAB.\n");
-
-    if (initCond)
-      mxDestroyArray(initCond);
-  }
-  mexPrintf("%d matlab calls in %8.3f seconds.\n", numCalls, timer.elapsed());
-}
-
-void PDE1dMexInt::doMatCallTestX()
-{
-  // [pl,ql,pr,qr] = heatbc(xl,ul,xr,ur,t)
-  setScalar(.1, mxX1);
-  setScalar(.2, mxVec1);
-  setScalar(.3, mxX2);
-  setScalar(.4, mxVec2);
-  setScalar(.5, mxT);
-  const int nargout = 4, nargin=6;
-  const mxArray *funcInp[] = { bcfun, mxX1, mxVec1, mxX2, mxVec2, mxT };
-#if 0
-  int err = mexCallMATLAB(nargout, matOutArgs, nargin,
-    const_cast<mxArray**>(funcInp), "feval");
-  if (err)
-    mexErrMsgIdAndTxt("MATLAB:filterTriangles:minrhs", "Error in mexCallMATLAB.\n");
-  print(matOutArgs[0], "pl");
-  print(matOutArgs[3], "qr");
-  for (int i = 0; i < nargout; i++) {
-    mxArray *a = matOutArgs[i];
-    if (a)
-      mxDestroyArray(a);
-  }
-#else
-  RealVector pl(1), ql(1), pr(1), qr(1);
-  RealVector *outArgs[] = {&pl, &ql, &pr, &qr};
-  callMatlab(funcInp, nargin, outArgs, nargout);
-  cout << pl << endl;
-  cout << ql << endl;
-  cout << pr << endl;
-  cout << qr << endl;
-#endif
-
-}
-
 void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
   RealVector *outArgs[], int nargout)
 {

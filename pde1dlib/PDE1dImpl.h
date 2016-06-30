@@ -38,6 +38,7 @@ private:
   void calcGlobalEqns(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
   void setAlgVarFlags(N_Vector id);
   void checkIncreasing(const RealVector &v, int argNum, const char *argName);
+  void checkCoeffs(const PDE1dDefn::PDE &coeffs);
   PDE1dDefn &pde;
   PDE1dOptions &options;
   GausLegendreIntRule *intRule;

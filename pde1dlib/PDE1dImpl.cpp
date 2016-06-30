@@ -94,13 +94,13 @@ pde(pde), options(options)
 
 PDE1dImpl::~PDE1dImpl()
 {
-  delete uu;
-  delete up;
-  delete res;
-  delete id;
-  delete yy0_mod;
-  delete yp0_mod;
-  delete ida;
+  if (uu) N_VDestroy_Serial(uu);
+  if(up) N_VDestroy_Serial(up);
+  if(res) N_VDestroy_Serial(res);
+  if(id) N_VDestroy_Serial(id);
+  if(yy0_mod) N_VDestroy_Serial(yy0_mod);
+  if(yp0_mod) N_VDestroy_Serial(yp0_mod);
+  if(ida) IDAFree(&ida);
   delete intRule;
 }
 
@@ -347,6 +347,7 @@ void PDE1dImpl::calcGlobalEqns(double t, T &u, T &up,
       auto dNdx = dN.col(0) / jac;
       auto dUiDx = (u2.col(e)*dNdx(0) + u2.col(e + 1)*dNdx(1));
       pde.evalPDE(xi, t, ui, dUiDx, coeffs);
+      checkCoeffs(coeffs);
       double xm = 1;
       if (m == 1)
         xm = xi;
@@ -363,19 +364,6 @@ void PDE1dImpl::calcGlobalEqns(double t, T &u, T &up,
         //eF += eFj;
         eSj = N.col(i)*coeffs.s(j)*jacWt;
         //eS += eSj;
-#if 0
-        int off1 = j;
-        for (int k = 0; k < numElemNodes; k++) {
-          eF(off1 + k) += eFj(k);
-          eS(off1 + k) += eSj(k);
-          int off2 = j;
-          for (int l = 0; l < numElemNodes; l++) {
-            eCMat(off1 + k, off2 + l) += eCj(k, l);
-            off2 += numDepVars-1;
-          }
-          off1 += numDepVars-1;
-        }
-#else
         for (int k = 0; k < numElemNodes; k++) {
           int kk = j + k*numDepVars;
           eF(kk) += eFj(k);
@@ -385,7 +373,6 @@ void PDE1dImpl::calcGlobalEqns(double t, T &u, T &up,
             eCMat(kk, ll) += eCj(k, l);
           }
         }
-#endif
       }
     }
 #if DEBUG_MATS
@@ -525,4 +512,14 @@ void PDE1dImpl::checkIncreasing(const RealVector &v,
       throw PDE1dException("pde1d:decreasing_indep_var", msg);
     }
   }
+}
+
+void PDE1dImpl::checkCoeffs(const PDE1dDefn::PDE &coeffs)
+{
+  for (int i = 0; i < coeffs.c.size(); i++) {
+    if (coeffs.c[i] != 0)
+      return;
+  }
+  throw PDE1dException("pde1d:no_parabolic_eqn", "At least one of the "
+    "entries in the c-coefficient vector must be non-zero.");
 }

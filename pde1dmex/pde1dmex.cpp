@@ -131,7 +131,7 @@ void mexFunction(int nlhs, mxArray*
   if (nrhs == 7)
     opts = getOptions(prhs[6]);
 
-  if(nlhs != 1)
+  if(nlhs > 1)
     mexErrMsgIdAndTxt("pde1d:nlhs", "pde1d returns only a single matrix.");
 
   plhs[0] = 0;
