@@ -29,6 +29,7 @@ using std::endl;
 #include "PDE1dOptions.h"
 #include "PDE1dException.h"
 #include "PDE1dWarningMsg.h"
+#include "SunVector.h"
 
 typedef Eigen::Map<Eigen::VectorXd> MapVec;
 typedef Eigen::Map<Eigen::MatrixXd> MapMat;
@@ -52,7 +53,6 @@ namespace {
 PDE1dImpl::PDE1dImpl(PDE1dDefn &pde, PDE1dOptions &options) : 
 pde(pde), options(options)
 {
-  uu=up=res=id=yy0_mod=yp0_mod = 0;
   ida = 0;
   intRule = new GausLegendreIntRule(3);
   mesh = pde.getMesh();
@@ -94,12 +94,6 @@ pde(pde), options(options)
 
 PDE1dImpl::~PDE1dImpl()
 {
-  if (uu) N_VDestroy_Serial(uu);
-  if(up) N_VDestroy_Serial(up);
-  if(res) N_VDestroy_Serial(res);
-  if(id) N_VDestroy_Serial(id);
-  if(yy0_mod) N_VDestroy_Serial(yy0_mod);
-  if(yp0_mod) N_VDestroy_Serial(yp0_mod);
   if(ida) IDAFree(&ida);
   delete intRule;
 }
@@ -197,20 +191,13 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
 
   int neqImpl = numFEMEqns;
   /* Create vectors uu, up, res, constraints, id. */
-  uu = N_VNew_Serial(neqImpl);
-  check_flag(uu, "N_VNew_Serial", 0);
-  up = N_VNew_Serial(neqImpl);
-  check_flag(up, "N_VNew_Serial", 0);
-  res = N_VNew_Serial(neqImpl);
-  check_flag(res, "N_VNew_Serial", 0);
-  id = N_VNew_Serial(neqImpl);
-  check_flag(id, "N_VNew_Serial", 0);
-  double *udata = NV_DATA_S(uu);
-  double *updata = NV_DATA_S(up);
+  SunVector uu(neqImpl), up(neqImpl), res(neqImpl), id(neqImpl);
+  double *udata = &uu[0];
+  double *updata = &up[0];
   MapVec u(udata, neqImpl);
   std::copy_n(y0.data(), numFEMEqns, udata);
-  N_VConst(0, up);
-  setAlgVarFlags(id);
+  up.setConstant(0);
+  setAlgVarFlags(id());
 
   /* Call IDACreate and IDAMalloc to initialize solution */
   ida = IDACreate();
@@ -218,11 +205,11 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
 
   int ier = IDASetUserData(ida, this);
   check_flag(&ier, "IDASetUserData", 1);
-  ier = IDASetId(ida, id);
+  ier = IDASetId(ida, id());
   check_flag(&ier, "IDASetId", 1);
   double t0 = 0, tf = .05;
   IDAResFn resFn = resFunc;
-  ier = IDAInit(ida, resFn, t0, uu, up);
+  ier = IDAInit(ida, resFn, t0, uu(), up());
   check_flag(&ier, "IDAInit", 1);
   const double relTol = options.getRelTol(), absTol = options.getAbsTol();
   ier = IDASStolerances(ida, relTol, absTol);
@@ -241,21 +228,17 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
       "Unable to calculate a consistent initial solution to the PDE.\n"
       "Often this is caused by an incorrect specification of the boundary conditions.");
   }
-  yy0_mod = N_VNew_Serial(neqImpl);
-  check_flag(yy0_mod, "N_VNew_Serial", 0);
-  yp0_mod = N_VNew_Serial(neqImpl);
-  check_flag(yp0_mod, "N_VNew_Serial", 0);
-  ier = IDAGetConsistentIC(ida, yy0_mod, yp0_mod);
+  SunVector yy0_mod(neqImpl), yp0_mod(neqImpl);
+  ier = IDAGetConsistentIC(ida, yy0_mod(), yp0_mod());
   check_flag(&ier, "IDAGetConsistentIC", 1);
 #if 0
-  N_Vector diff_vec = N_VNew_Serial(neqImpl);
-  N_VLinearSum(1, uu, -1, yy0_mod, diff_vec);
-  N_Vector unit_vec = N_VNew_Serial(neqImpl);
-  N_VConst(1, unit_vec);
-  double normDiff = N_VWrmsNorm(diff_vec, unit_vec);
+  SunVector diff_vec(neqImpl), unit_vec(neqImpl);
+  N_VLinearSum(1, uu(), -1, yy0_mod(), diff_vec());
+  unit_vec.setConstant(1);
+  double normDiff = N_VWrmsNorm(diff_vec(), unit_vec());
   printf("unit_vec=%12.3e\n", normDiff);
 #endif
-  MapVec uMod(NV_DATA_S(yy0_mod), neqImpl);
+  MapVec uMod(&yy0_mod[0], neqImpl);
   if (initConditionsChanged(u, uMod, 100*absTol)) {
     PDE1dWarningMsg("pde1d:init_cond_changed",
    "User-defined initial conditions were changed "
@@ -271,11 +254,11 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
 #endif
   
   sol.time(0) = tspan(0);
-  MapVec y0Mod(NV_DATA_S(yy0_mod), neqImpl);
+  MapVec y0Mod(&yy0_mod[0], neqImpl);
   sol.u.row(0) = y0Mod;
   for (int i = 1; i < numTimes; i++) {
     double tout=tspan(i), tret;
-    ier = IDASolve(ida, tout, &tret, uu, up, IDA_NORMAL);
+    ier = IDASolve(ida, tout, &tret, uu(), up(), IDA_NORMAL);
     if (ier < 0) {
       char msg[1024];
       sprintf(msg, "Time integration failed at t=%15.6e before reaching final time.\n"

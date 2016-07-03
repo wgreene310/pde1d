@@ -50,7 +50,6 @@ private:
   RealMatrix y0;
   PDE1dDefn::BC bc;
   PDE1dDefn::PDE coeffs;
-  N_Vector uu, up, res, id, yy0_mod, yp0_mod;
   void *ida;
 };
 
