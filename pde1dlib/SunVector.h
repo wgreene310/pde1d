@@ -16,6 +16,8 @@
 #ifndef SunVector_h
 #define SunVector_h
 
+#include <stddef.h>
+
 #include <nvector/nvector_serial.h>
 
 class SunVector {
