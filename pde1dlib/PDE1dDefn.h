@@ -24,6 +24,12 @@ public:
     const RealVector &u, const RealVector &DuDx, PDE &pde) = 0;
   virtual RealVector getMesh() = 0;
   virtual RealVector getTimeSpan() = 0;
+  virtual bool hasVectorPDEEval() const { return false;  }
+  struct PDEVec {
+    RealMatrix c, f, s;
+  };
+  virtual void evalPDE(RealVector x, double t,
+    const RealMatrix &u, const RealMatrix &DuDx, PDEVec &pde) {}
 };
 
 struct PDESolution {

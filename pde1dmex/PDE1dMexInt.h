@@ -39,21 +39,37 @@ public:
     double xr, const RealVector &ur, double t, BC &bc);
   virtual void evalPDE(double x, double t,
     const RealVector &u, const RealVector &DuDx, PDE &pde);
+  virtual bool hasVectorPDEEval() const { return true; }
+  virtual void evalPDE(RealVector x, double t,
+    const RealMatrix &u, const RealMatrix &DuDx, PDEVec &pde);
   virtual RealVector getMesh();
   virtual RealVector getTimeSpan();
 private:
   static void setScalar(double x, mxArray *a) {
     double *p = mxGetPr(a); p[0] = x;
   }
+  template<class T>
+  static void setMxImpl(const T &ea, mxArray *a) {
+    int vr = ea.rows(), vc = ea.cols(), s = ea.size();
+    if (vr != mxGetM(a) || vc != mxGetN(a)) {
+      double *pr = (double*)mxRealloc(mxGetPr(a), s*sizeof(double));
+      mxSetM(a, vr);
+      mxSetN(a, vc);
+      mxSetPr(a, pr);
+    }
+    std::copy_n(ea.data(), s, mxGetPr(a));
+  }
   static void setVector(const RealVector &v, mxArray *a) {
-    std::copy_n(v.data(), v.size(), mxGetPr(a));
+    setMxImpl(v, a);
+  }
+  static void setMatrix(const RealMatrix &v, mxArray *a) {
+    setMxImpl(v, a);
   }
   void setNumPde();
-  void doMatCallTest();
-  void doMatCallTestX();
-  void doMatCallTestXX();
   void callMatlab(const mxArray *inArgs[], int nargin,
     RealVector *outArgs[], int nargout);
+  void callMatlab(const mxArray *inArgs[], int nargin,
+    RealMatrix *outArgs[], int nargout);
   static std::string getFuncNameFromHandle(const mxArray *fh);
   int mCoord, numPDE;
   RealVector mesh, tSpan;
