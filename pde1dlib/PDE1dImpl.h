@@ -36,6 +36,8 @@ public:
 private:
   template<class T, class TR>
   void calcGlobalEqns(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
+  template<class T, class TR>
+  void calcGlobalEqnsVec(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
   void setAlgVarFlags(N_Vector id);
   void checkIncreasing(const RealVector &v, int argNum, const char *argName);
   void checkCoeffs(const PDE1dDefn::PDE &coeffs);
@@ -50,6 +52,7 @@ private:
   RealMatrix y0;
   PDE1dDefn::BC bc;
   PDE1dDefn::PDE coeffs;
+  PDE1dDefn::PDEVec coeffsAllPts; // FIXME should have only one of coeffs or this one
   void *ida;
 };
 

@@ -322,12 +322,12 @@ void PDE1dImpl::calcGlobalEqns(double t, T &u, T &up,
     double L = x(e + 1) - x(e);
     //fprintf('elem=%d\n', e);
     double jac = L / 2;
+    auto dNdx = dN.col(0) / jac;
     for (int i = 0; i < numIntPts; i++) {
       // assume two node elements
       double jacWt = jac*intWts(i);
       double xi = x(e)*N(0, i) + x(e + 1)*N(1, i);
       auto ui = u2.col(e)*N(0, i) + u2.col(e + 1)*N(1, i);
-      auto dNdx = dN.col(0) / jac;
       auto dUiDx = (u2.col(e)*dNdx(0) + u2.col(e + 1)*dNdx(1));
       pde.evalPDE(xi, t, ui, dUiDx, coeffs);
       checkCoeffs(coeffs);
@@ -375,6 +375,134 @@ void PDE1dImpl::calcGlobalEqns(double t, T &u, T &up,
   //cout << "F\n" << F << endl;
 }
 
+  template<class T, class TR>
+  void PDE1dImpl::calcGlobalEqnsVec(double t, T &u, T &up,
+    TR &Cxd, TR &F, TR &S)
+  {
+    const int nen = numElemNodes; // work around for g++ link error
+    const int m = pde.getCoordSystem();
+    int numEqns = numFEMEqns;
+    int numElemEqns = numDepVars*nen;
+    Cxd.setZero();
+
+    //cout << "u=" << u.transpose() << endl;
+    MapMat u2(u.data(), numDepVars, numNodes);
+    MapMat up2(up.data(), numDepVars, numNodes);
+    //cout << "u2=" << u2.transpose() << endl;
+    //cout << "up2=" << up2.transpose() << endl;
+
+    int numIntPts = intRule->getNumPoints();
+    RealVector intPts(numIntPts), intWts(numIntPts);
+    RealMatrix N(nen, numIntPts), dN(nen, numIntPts);
+    for (int i = 0; i < numIntPts; i++) {
+      double pt;
+      intRule->getPoint(i, pt, intWts[i]);
+      intPts[i] = pt;
+      shapeLine2(pt, N.col(i).data());
+      dShapeLine2(pt, dN.col(i).data());
+    }
+#if 0
+    cout << "intPts=" << intPts.transpose() << endl;
+    cout << "intWts=" << intWts.transpose() << endl;
+    cout << "N\n" << N << endl;
+#endif
+
+    // get the coefficients at all integ pts in a single call
+    int ne = numNodes - 1;
+    int numXPts = numIntPts*ne;
+    RealVector xPts(numXPts);
+    RealMatrix uPts(numDepVars, numXPts), duPts(numDepVars, numXPts);
+    RealVector &x = mesh;
+    int ip = 0;
+    for (int e = 0; e < ne; e++) {
+      double L = x(e + 1) - x(e);
+      double jac = L / 2;
+      for (int i = 0; i < numIntPts; i++) {
+        // assume two node elements
+        double jacWt = jac*intWts(i);
+        xPts(ip) = x(e)*N(0, i) + x(e + 1)*N(1, i);
+        uPts.col(ip) = u2.col(e)*N(0, i) + u2.col(e + 1)*N(1, i);
+        auto dNdx = dN.col(0) / jac;
+        duPts.col(ip) = (u2.col(e)*dNdx(0) + u2.col(e + 1)*dNdx(1));
+        ip++;
+      }
+    }
+    coeffsAllPts.c.resize(numDepVars, numXPts);
+    coeffsAllPts.f.resize(numDepVars, numXPts);
+    coeffsAllPts.s.resize(numDepVars, numXPts);
+    pde.evalPDE(xPts, t, uPts, duPts, coeffsAllPts);
+
+    RealMatrix eCMat = RealMatrix::Zero(numElemEqns, numElemEqns);
+    RealVector eF = RealVector::Zero(numElemEqns);
+    RealVector eS = RealVector::Zero(numElemEqns);
+    RealVector eUp(numElemEqns);
+    RealMatrix eCj(nen, nen);
+    RealVector eFj(numElemNodes), eSj(numElemNodes);
+
+    
+    ip = 0; 
+    int eInd = 0;
+    for (int e = 0; e < ne; e++) {
+      eCMat.setZero();
+      eF.setZero();
+      eS.setZero();
+      double L = x(e + 1) - x(e);
+      //fprintf('elem=%d\n', e);
+      double jac = L / 2;
+      auto dNdx = dN.col(0) / jac;
+      for (int i = 0; i < numIntPts; i++) {
+        // assume two node elements
+        double jacWt = jac*intWts(i);
+        double xi = xPts(ip);
+        auto &cIp = coeffsAllPts.c.col(ip);
+        auto &sIp = coeffsAllPts.s.col(ip);
+        auto &fIp = coeffsAllPts.f.col(ip);
+        double xm = 1;
+        if (m == 1)
+          xm = xi;
+        else if (m == 2)
+          xm = xi*xi;
+        cIp *= xm;
+        sIp *= xm;
+        fIp *= xm;
+
+        for (int j = 0; j < numDepVars; j++) {
+          eCj = N.col(i)*cIp(j)*N.col(i).transpose()*jacWt;
+          //eCMat += eCj;
+          eFj = dNdx*fIp(j)*jacWt;
+          //eF += eFj;
+          eSj = N.col(i)*sIp(j)*jacWt;
+          //eS += eSj;
+          for (int k = 0; k < numElemNodes; k++) {
+            int kk = j + k*numDepVars;
+            eF(kk) += eFj(k);
+            eS(kk) += eSj(k);
+            for (int l = 0; l < numElemNodes; l++) {
+              int ll = j + l*numDepVars;
+              eCMat(kk, ll) += eCj(k, l);
+            }
+          }
+        }
+        ip++;
+      }
+#if DEBUG_MATS
+      cout << "eF: " << eF.transpose() << endl;
+      cout << "eCMat\n" << eCMat << endl;
+#endif
+      eUp.head(numDepVars) = up2.col(e);
+      eUp.tail(numDepVars) = up2.col(e + 1);
+#if DEBUG_MATS
+      //cout << "eUp=" << eUp.transpose() << endl;
+#endif
+      Cxd.segment(eInd, numElemEqns) += eCMat*eUp;
+      F.segment(eInd, numElemEqns) += eF;
+      S.segment(eInd, numElemEqns) += eS;
+      eInd += numDepVars;
+    }
+    //cout << "F\n" << F << endl;
+  }
+
+
 template<class T>
 void PDE1dImpl::calcRHSODE(double time, T &u, T &up, T &R)
 {
@@ -382,7 +510,10 @@ void PDE1dImpl::calcRHSODE(double time, T &u, T &up, T &R)
   RealVector F = RealVector::Zero(numFEMEqns);
   RealVector S = RealVector::Zero(numFEMEqns);
 
-  calcGlobalEqns(time, u, up, Cxd, F, S);
+  if (options.isVectorized() && pde.hasVectorPDEEval())
+    calcGlobalEqnsVec(time, u, up, Cxd, F, S);
+  else
+    calcGlobalEqns(time, u, up, Cxd, F, S);
   R = F - S;
 
   // apply constraints
