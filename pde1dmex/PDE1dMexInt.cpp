@@ -104,6 +104,7 @@ void PDE1dMexInt::evalBC(double xl, const RealVector &ul,
 
 void PDE1dMexInt::evalPDE(double x, double t,
   const RealVector &u, const RealVector &DuDx, PDE &pde) {
+  // Evaluate pde coefficients one point at a time
   // [c,f,s] = heatpde(x,t,u,DuDx)
   setScalar(x, mxX1);
   setScalar(t, mxT);
@@ -118,6 +119,7 @@ void PDE1dMexInt::evalPDE(double x, double t,
 void PDE1dMexInt::evalPDE(RealVector x, double t,
   const RealMatrix &u, const RealMatrix &DuDx, PDEVec &pde)
 {
+  // Evaluate pde coefficients at all x-locations
   // [c,f,s] = heatpde(x,t,u,DuDx)
   setVector(x, mxX1);
   setScalar(t, mxT);

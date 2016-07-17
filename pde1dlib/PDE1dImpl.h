@@ -53,6 +53,10 @@ private:
   PDE1dDefn::BC bc;
   PDE1dDefn::PDE coeffs;
   PDE1dDefn::PDEVec coeffsAllPts; // FIXME should have only one of coeffs or this one
+  // temporary arrays for vectorized mode
+  RealVector xPts;
+  RealMatrix uPts, duPts;
+
   void *ida;
 };
 

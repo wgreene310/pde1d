@@ -410,8 +410,10 @@ void PDE1dImpl::calcGlobalEqns(double t, T &u, T &up,
     // get the coefficients at all integ pts in a single call
     int ne = numNodes - 1;
     int numXPts = numIntPts*ne;
-    RealVector xPts(numXPts);
-    RealMatrix uPts(numDepVars, numXPts), duPts(numDepVars, numXPts);
+    xPts.resize(numXPts);
+    uPts.resize(numDepVars, numXPts);
+    duPts.resize(numDepVars, numXPts);
+
     RealVector &x = mesh;
     int ip = 0;
     for (int e = 0; e < ne; e++) {
@@ -566,6 +568,7 @@ void PDE1dImpl::testMats()
   cout << "R\n" << R.transpose() << endl;
 }
 
+
 void PDE1dImpl::setAlgVarFlags(N_Vector id)
 {
   N_VConst(1, id);
@@ -580,11 +583,10 @@ void PDE1dImpl::setAlgVarFlags(N_Vector id)
     double pt = xi[i];
     dShapeLine2(pt, dN.col(i).data());
   }
-  RealVector dUiDx(numDepVars);
+ 
+  duPts.resize(numDepVars, numNodes);
   int nnm1 = numNodes - 1;
   for(int i = 0; i < numNodes; i++) {
-    double xi = mesh(i);
-    auto ui = y0.col(i);
     double L;
     if (i < nnm1)
       L = mesh(i + 1) - mesh(i);
@@ -593,13 +595,32 @@ void PDE1dImpl::setAlgVarFlags(N_Vector id)
     double jac = L / 2;
     auto dNdx = dN.col(0) / jac;
     if (i < nnm1)
-      dUiDx = (y0.col(i)*dNdx(0) + y0.col(i + 1)*dNdx(1));
+      duPts.col(i) = (y0.col(i)*dNdx(0) + y0.col(i + 1)*dNdx(1));
     else
-      dUiDx = (y0.col(i-1)*dNdx(0) + y0.col(i)*dNdx(1));
-    pde.evalPDE(xi, 0, ui, dUiDx, coeffs);
-    for (int j = 0; j < numDepVars; j++)
-      if (coeffs.c[j] == 0)
-        idMat(j, i) = 0;
+      duPts.col(i) = (y0.col(i-1)*dNdx(0) + y0.col(i)*dNdx(1));
+  }
+
+  if (options.isVectorized() && pde.hasVectorPDEEval()) {
+    coeffsAllPts.c.resize(numDepVars, numNodes);
+    coeffsAllPts.f.resize(numDepVars, numNodes);
+    coeffsAllPts.s.resize(numDepVars, numNodes);
+    pde.evalPDE(mesh, 0, y0, duPts, coeffsAllPts);
+    for (int i = 0; i < numNodes; i++) {
+      for (int j = 0; j < numDepVars; j++)
+        if (coeffsAllPts.c(j,i)==0)
+          idMat(j, i) = 0;
+    }
+  }
+  else {
+    for (int i = 0; i < numNodes; i++) {
+      double xi = mesh(i);
+      auto &ui = y0.col(i);
+      auto &dUiDx = duPts.col(i);
+      pde.evalPDE(xi, 0, ui, dUiDx, coeffs);
+      for (int j = 0; j < numDepVars; j++)
+        if (coeffs.c[j] == 0)
+          idMat(j, i) = 0;
+    }
   }
 
   // account for dirichlet constraints at ends
