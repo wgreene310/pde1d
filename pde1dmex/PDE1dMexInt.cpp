@@ -14,6 +14,7 @@
 // this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include <iostream>
+#include <stdio.h>
 
 using std::cout;
 using std::endl;

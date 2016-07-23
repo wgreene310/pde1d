@@ -214,7 +214,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   const double relTol = options.getRelTol(), absTol = options.getAbsTol();
   ier = IDASStolerances(ida, relTol, absTol);
   check_flag(&ier, "IDASStolerances", 1);
-  ier = IDASetMaxNumSteps(ida, 10000);
+  ier = IDASetMaxNumSteps(ida, options.getMaxSteps());
   check_flag(&ier, "IDASetMaxNumSteps", 1);
   /* Call IDABand to specify the linear solver. */
   int mu = numDepVars, ml = numDepVars;
@@ -260,6 +260,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
     double tout=tspan(i), tret;
     ier = IDASolve(ida, tout, &tret, uu(), up(), IDA_NORMAL);
     if (ier < 0) {
+      printStats();
       char msg[1024];
       sprintf(msg, "Time integration failed at t=%15.6e before reaching final time.\n"
         "Often this is caused by one or more dependent variables becoming unbounded.",
@@ -269,6 +270,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
     sol.time(i) = tret;
     sol.u.row(i) = u;
   }
+  printStats();
 
   return 0;
 }
@@ -456,9 +458,9 @@ void PDE1dImpl::calcGlobalEqns(double t, T &u, T &up,
         // assume two node elements
         double jacWt = jac*intWts(i);
         double xi = xPts(ip);
-        auto &cIp = coeffsAllPts.c.col(ip);
-        auto &sIp = coeffsAllPts.s.col(ip);
-        auto &fIp = coeffsAllPts.f.col(ip);
+        Eigen::Ref<Eigen::VectorXd> cIp = coeffsAllPts.c.col(ip);
+        Eigen::Ref<Eigen::VectorXd> sIp = coeffsAllPts.s.col(ip);
+        Eigen::Ref<Eigen::VectorXd> fIp = coeffsAllPts.f.col(ip);
         double xm = 1;
         if (m == 1)
           xm = xi;
@@ -614,8 +616,8 @@ void PDE1dImpl::setAlgVarFlags(N_Vector id)
   else {
     for (int i = 0; i < numNodes; i++) {
       double xi = mesh(i);
-      auto &ui = y0.col(i);
-      auto &dUiDx = duPts.col(i);
+      const auto &ui = y0.col(i);
+      const auto &dUiDx = duPts.col(i);
       pde.evalPDE(xi, 0, ui, dUiDx, coeffs);
       for (int j = 0; j < numDepVars; j++)
         if (coeffs.c[j] == 0)
@@ -657,4 +659,24 @@ void PDE1dImpl::checkCoeffs(const PDE1dDefn::PDE &coeffs)
   }
   throw PDE1dException("pde1d:no_parabolic_eqn", "At least one of the "
     "entries in the c-coefficient vector must be non-zero.");
+}
+
+void PDE1dImpl::printStats()
+{
+  if (!options.printStats()) return;
+  long nsteps, nrevals, nlinsetups, netfails;
+  int klast, kcur;
+  double hinused, hlast, hcur, tcur;
+  int flag = IDAGetIntegratorStats(ida, &nsteps, &nrevals, &nlinsetups,
+    &netfails, &klast, &kcur, &hinused,
+    &hlast, &hcur, &tcur);
+  long nniters, nncfails;
+  flag = IDAGetNonlinSolvStats(ida, &nniters, &nncfails);
+  printf("Number of internal time steps = %d\n", nsteps);
+  printf("Number of residual function calls = %d\n", nrevals);
+  printf("Number of Jacobian calculations = %d\n", nlinsetups);
+  printf("Number of solution accuracy test failures = %d\n", netfails);
+  printf("Last internal time step size = %12.3e\n", hlast);
+  printf("Number of nonlinear iterations = %d\n", nniters);
+  printf("Number of nonlinear convergence failures = %d\n", nncfails);
 }

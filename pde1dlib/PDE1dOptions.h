@@ -21,7 +21,8 @@ class PDE1dOptions
 public:
   PDE1dOptions(double relTol = 1e-3, double absTol = 1e-6) :
     relTol(relTol), absTol(absTol) {
-    vectorizedFuncs = false;
+    vectorizedFuncs = stats = false;
+    maxSteps = 10000;
   }
   double getRelTol() const { return relTol;  }
   double getAbsTol() const { return absTol;  }
@@ -29,9 +30,15 @@ public:
   void setAbsTol(double tol) { absTol = tol; }
   bool isVectorized() const { return vectorizedFuncs; }
   void setVectorized(bool isVec) { vectorizedFuncs = isVec; }
+  int getMaxSteps() const { return maxSteps;  }
+  void setMaxSteps(int maxSteps) { this->maxSteps = maxSteps;  }
+  bool printStats() const { return stats; }
+  void setPrintStats(bool sts) { stats = sts; }
 private:
   double relTol, absTol;
   bool vectorizedFuncs;
+  int maxSteps;
+  bool stats;
 };
 
 #endif

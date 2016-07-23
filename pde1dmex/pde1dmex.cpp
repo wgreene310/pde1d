@@ -67,6 +67,24 @@ namespace {
           "The value of the \"Vectorized\" option must be either \"On\" or \"Off\".");
         pdeOpts.setVectorized(isVec);
       }
+      else if (boost::iequals(ni, "maxsteps")) {
+        int mxs = (int)mxGetScalar(val);
+        pdeOpts.setMaxSteps(mxs);
+      }
+      else if (boost::iequals(ni, "stats")) {
+        const int buflen = 1024;
+        char buf[buflen];
+        mxGetString(val, buf, buflen);
+        bool doStats;
+        if (boost::iequals(buf, "on"))
+          doStats = true;
+        else if (boost::iequals(buf, "off"))
+          doStats = false;
+        else
+          mexErrMsgIdAndTxt("pde1d:invalidStats",
+          "The value of the \"Stats\" option must be either \"On\" or \"Off\".");
+        pdeOpts.setPrintStats(doStats);
+      }
       else {
         char msg[1024];
         sprintf(msg, "The options argument contains the field \"%s\".\n"

@@ -41,6 +41,7 @@ private:
   void setAlgVarFlags(N_Vector id);
   void checkIncreasing(const RealVector &v, int argNum, const char *argName);
   void checkCoeffs(const PDE1dDefn::PDE &coeffs);
+  void printStats();
   PDE1dDefn &pde;
   PDE1dOptions &options;
   GausLegendreIntRule *intRule;
