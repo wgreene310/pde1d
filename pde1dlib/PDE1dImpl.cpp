@@ -130,7 +130,7 @@ namespace {
 #define DEBUG 0
 
 #if DEBUG
-    printf("heatres called\n");
+    printf("resFunc called\n");
     print(uu, "u");
     print(up, "up");
 #endif
@@ -140,7 +140,7 @@ namespace {
 
 #if DEBUG
     print(resval, "resval");
-    exit(1);
+    throw PDE1dException("pde1d:debug_exit", "Debugging, quitting early.");
 #endif
 
     return 0;
