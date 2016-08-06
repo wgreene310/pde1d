@@ -217,7 +217,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   ier = IDASetMaxNumSteps(ida, options.getMaxSteps());
   check_flag(&ier, "IDASetMaxNumSteps", 1);
   /* Call IDABand to specify the linear solver. */
-  int mu = numDepVars, ml = numDepVars;
+  int mu = 2*numDepVars-1, ml = mu;
   ier = IDABand(ida, neqImpl, mu, ml);
   check_flag(&ier, "IDABand", 1);
 
@@ -246,8 +246,10 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
       "the initial time.\n");
   }
 #if 0
-  print(uu, "yy0");
-  print(yy0_mod, "yy0_mod");
+  print(uu(), "yy0");
+  print(yy0_mod(), "yy0_mod");
+  print(up(), "yp0");
+  print(yp0_mod(), "yp0_mod");
   // check up
   //resFn(0, yy0_mod, yp0_mod, res, this);
   //print(res, "res");
@@ -555,8 +557,8 @@ void PDE1dImpl::testMats()
 {
   RealVector u(numFEMEqns), up(numFEMEqns);
   for (int i = 0; i < numFEMEqns; i++) {
-    u(i) = i;
-    up(i) = i;
+    u(i) = .1*(i+1);
+    up(i) = 0;
   }
   RealVector Cxd = RealVector::Zero(numFEMEqns);
   RealVector F = RealVector::Zero(numFEMEqns);
@@ -565,9 +567,14 @@ void PDE1dImpl::testMats()
   cout << "Cxd\n" << Cxd.transpose() << endl;
   cout << "F\n" << F.transpose() << endl;
   cout << "S\n" << S.transpose() << endl;
+#if 0
   RealVector R = RealVector::Zero(numFEMEqns);
   calcRHSODE(0, u, up, R);
+#else
+  RealVector R = S - F;
+#endif
   cout << "R\n" << R.transpose() << endl;
+  throw PDE1dException("pde1d:testResidual", "residual test complete.");
 }
 
 
