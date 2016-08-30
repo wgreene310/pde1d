@@ -18,12 +18,16 @@
 
 #include <vector>
 
+#include <Eigen/SparseCore>
+typedef Eigen::SparseMatrix<double> SparseMat;
+
 #include "PDE1dDefn.h"
 #include "GausLegendreIntRule.h"
 
 #include <nvector/nvector_serial.h>
 
 class PDE1dOptions;
+class FiniteDiffJacobian;
 
 class PDE1dImpl {
 public:
@@ -32,6 +36,9 @@ public:
   int solveTransient(PDESolution &sol);
   template<class T>
   void calcRHSODE(double time, T &u, T &up, T &R);
+  template<class T, class T2>
+  void calcJacobianODE(double time, double alpha, T &u, T &up, T &R,
+    T2 Jac);
   void testMats();
 private:
   template<class T, class TR>
@@ -42,6 +49,7 @@ private:
   void checkIncreasing(const RealVector &v, int argNum, const char *argName);
   void checkCoeffs(const PDE1dDefn::PDE &coeffs);
   void printStats();
+  void calcJacPattern(Eigen::SparseMatrix<double> &jac);
   PDE1dDefn &pde;
   PDE1dOptions &options;
   GausLegendreIntRule *intRule;
@@ -57,7 +65,7 @@ private:
   // temporary arrays for vectorized mode
   RealVector xPts;
   RealMatrix uPts, duPts;
-
+  FiniteDiffJacobian *fDiffJac;
   void *ida;
 };
 

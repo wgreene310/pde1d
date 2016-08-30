@@ -19,7 +19,12 @@
 using std::cout;
 using std::endl;
 
+#define SUN_USING_SPARSE 1
+
 #include <ida/ida.h>
+#if SUN_USING_SPARSE
+#include <ida/ida_klu.h>
+#endif
 #include <ida/ida_band.h>
 #include <ida/ida_dense.h>
 #include <nvector/nvector_serial.h>
@@ -30,6 +35,9 @@ using std::endl;
 #include "PDE1dException.h"
 #include "PDE1dWarningMsg.h"
 #include "SunVector.h"
+#if SUN_USING_SPARSE
+#include "FiniteDiffJacobian.h"
+#endif
 
 typedef Eigen::Map<Eigen::VectorXd> MapVec;
 typedef Eigen::Map<Eigen::MatrixXd> MapMat;
@@ -146,6 +154,23 @@ namespace {
     return 0;
   }
 
+#if SUN_USING_SPARSE
+  int jacFunc(realtype t, realtype c_j,
+    N_Vector uu, N_Vector up, N_Vector r,
+    SlsMat Jac, void *user_data,
+    N_Vector tmp1, N_Vector tmp2, N_Vector tmp3) {
+
+    PDE1dImpl *fem = (PDE1dImpl*) user_data;
+
+    fem->calcJacobianODE(t, c_j, uu, up, r, Jac);
+#if 0
+    PrintSparseMat(Jac);
+    return 1;
+#endif
+    return 0;
+  }
+#endif
+
   void check_flag(const void *flagvalue, const char *funcname, int opt)
   {
 
@@ -216,10 +241,22 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   check_flag(&ier, "IDASStolerances", 1);
   ier = IDASetMaxNumSteps(ida, options.getMaxSteps());
   check_flag(&ier, "IDASetMaxNumSteps", 1);
+#if SUN_USING_SPARSE
+  //printf("Using sparse solver.\n");
+  SparseMat P;
+  calcJacPattern(P);
+  //cout << P.toDense() << endl;
+  ier = IDAKLU(ida, numFEMEqns, P.nonZeros());
+  check_flag(&ier, "IDAKLU", 1);
+  ier = IDASlsSetSparseJacFn(ida, jacFunc);
+  check_flag(&ier, "IDASlsSetSparseJacFn", 1);
+  fDiffJac = new FiniteDiffJacobian(P);
+#else
   /* Call IDABand to specify the linear solver. */
   int mu = 2*numDepVars-1, ml = mu;
   ier = IDABand(ida, neqImpl, mu, ml);
   check_flag(&ier, "IDABand", 1);
+#endif
 
   // Call IDACalcIC to correct the initial values. 
   ier = IDACalcIC(ida, IDA_YA_YDP_INIT, tf);
@@ -686,4 +723,33 @@ void PDE1dImpl::printStats()
   printf("Last internal time step size = %12.3e\n", hlast);
   printf("Number of nonlinear iterations = %d\n", nniters);
   printf("Number of nonlinear convergence failures = %d\n", nncfails);
+}
+
+void PDE1dImpl::calcJacPattern(Eigen::SparseMatrix<double> &J)
+{
+  J.resize(numFEMEqns, numFEMEqns);
+  int n2 = numDepVars*numDepVars;
+  int nel = numNodes - 1;
+  int nnz = 3 * n2*(nel + 1); // approximate nnz
+  J.reserve(nnz);
+  int eOff = 0;
+  for (int n = 0; n < nel + 1; n++) {
+    for (int i = 0; i < numDepVars; i++) {
+      for (int j = 0; j < numDepVars; j++) {
+        J.insert(i + eOff, j + eOff) = 1;
+        if (n < nel) {
+          J.insert(i + eOff + numDepVars, j + eOff) = 1;
+          J.insert(i + eOff, j + eOff + numDepVars) = 1;
+        }
+      }
+    }
+    eOff += numDepVars;
+  }
+  J.makeCompressed();
+}
+
+template<class T, class T2>
+void PDE1dImpl::calcJacobianODE(double time, double alpha, T &u, T &up, T &res,
+  T2 Jac) {
+  fDiffJac->calcJacobian(time, alpha, u, up, res, resFunc, this, Jac);
 }
