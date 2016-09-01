@@ -20,6 +20,7 @@ using std::cout;
 using std::endl;
 
 #define SUN_USING_SPARSE 1
+#define BAND_SOLVER 0
 
 #include <ida/ida.h>
 #if SUN_USING_SPARSE
@@ -105,8 +106,6 @@ PDE1dImpl::~PDE1dImpl()
   if(ida) IDAFree(&ida);
   delete intRule;
 }
-
-#define BAND_SOLVER 1
 
 namespace {
 
@@ -251,11 +250,14 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   ier = IDASlsSetSparseJacFn(ida, jacFunc);
   check_flag(&ier, "IDASlsSetSparseJacFn", 1);
   fDiffJac = new FiniteDiffJacobian(P);
-#else
+#elif BAND_SOLVER
   /* Call IDABand to specify the linear solver. */
   int mu = 2*numDepVars-1, ml = mu;
   ier = IDABand(ida, neqImpl, mu, ml);
   check_flag(&ier, "IDABand", 1);
+#else
+  ier = IDADense(ida, neqImpl);
+  check_flag(&ier, "IDADense", 1);
 #endif
 
   // Call IDACalcIC to correct the initial values. 
