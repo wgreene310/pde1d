@@ -22,19 +22,12 @@ public:
   typedef Eigen::SparseMatrix<double> SparseMat;
   FiniteDiffJacobian(SparseMat &jacPattern);
   ~FiniteDiffJacobian();
-#if 0
-  void calcJacobian(SparseMat &jac, IDAResFn rf, double tres, double alpha,
-    void *userData);
-  void calcJacobian(SlsMat jac, IDAResFn rf, double tres, double alpha,
-    void *userData);
-#else
-  void calcJacobian(double tres, double alpha,
+  void calcJacobian(double tres, double alpha, double beta,
     N_Vector uu, N_Vector up, N_Vector r,
     IDAResFn rf, void *userData, SparseMat &Jac);
-  void calcJacobian(double tres, double alpha,
+  void calcJacobian(double tres, double alpha, double beta,
     N_Vector uu, N_Vector up, N_Vector r,
     IDAResFn rf, void *userData, SlsMat Jac);
-#endif
 private:
   int neq, nnz;
   Eigen::VectorXi indrow, jpntr, ngrp;

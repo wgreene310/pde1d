@@ -19,6 +19,8 @@
 using std::cout;
 using std::endl;
 
+#define DAE_Y_INIT 0
+
 #define SUN_USING_SPARSE 1
 #define BAND_SOLVER 0
 
@@ -221,6 +223,13 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   MapVec u(udata, neqImpl);
   std::copy_n(y0.data(), numFEMEqns, udata);
   up.setConstant(0);
+#if 0
+  // test for consistent initial conditions
+  resFunc(0, uu(), up(), res(), this);
+  MapVec resVec(&res[0], neqImpl);
+  double initResNorm = resVec.dot(resVec);
+  printf("initResNorm=%12.3e\n", sqrt(initResNorm));
+#endif
   setAlgVarFlags(id());
 
   /* Call IDACreate and IDAMalloc to initialize solution */
@@ -229,8 +238,10 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
 
   int ier = IDASetUserData(ida, this);
   check_flag(&ier, "IDASetUserData", 1);
+#if ! DAE_Y_INIT
   ier = IDASetId(ida, id());
   check_flag(&ier, "IDASetId", 1);
+#endif
   double t0 = 0, tf = .05;
   IDAResFn resFn = resFunc;
   ier = IDAInit(ida, resFn, t0, uu(), up());
@@ -261,7 +272,11 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
 #endif
 
   // Call IDACalcIC to correct the initial values. 
+#if DAE_Y_INIT
+  ier = IDACalcIC(ida, IDA_Y_INIT, tf);
+#else
   ier = IDACalcIC(ida, IDA_YA_YDP_INIT, tf);
+#endif
   if (ier < 0) {
     throw PDE1dException("pde1d:consistent_ic",
       "Unable to calculate a consistent initial solution to the PDE.\n"
@@ -751,7 +766,7 @@ void PDE1dImpl::calcJacPattern(Eigen::SparseMatrix<double> &J)
 }
 
 template<class T, class T2>
-void PDE1dImpl::calcJacobianODE(double time, double alpha, T &u, T &up, T &res,
+void PDE1dImpl::calcJacobianODE(double time, double beta, T &u, T &up, T &res,
   T2 Jac) {
-  fDiffJac->calcJacobian(time, alpha, u, up, res, resFunc, this, Jac);
+  fDiffJac->calcJacobian(time, 1, beta, u, up, res, resFunc, this, Jac);
 }
