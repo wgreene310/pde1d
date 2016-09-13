@@ -64,6 +64,10 @@ PDE1dMexInt::PDE1dMexInt(int m, const mxArray *pdefun, const mxArray *icfun,
   setNumPde();
   mxVec1 = mxCreateDoubleMatrix(numPDE, 1, mxREAL);
   mxVec2 = mxCreateDoubleMatrix(numPDE, 1, mxREAL);
+  odefun = 0;
+  odeIcFun = 0;
+  odeMesh = 0;
+  numODE = 0;
 }
 
 
@@ -76,9 +80,18 @@ PDE1dMexInt::~PDE1dMexInt()
   mxDestroyArray(mxVec2);
 }
 
+void PDE1dMexInt::setODEDefn(const mxArray *odeFun, const mxArray *icFun,
+  const mxArray *odemesh)
+{
+  odefun = odeFun;
+  odeIcFun = icFun;
+  odeMesh = odemesh;
+  setNumOde();
+}
+
 int PDE1dMexInt::getNumEquations()
 {
-  return numPDE;
+  return numPDE+numODE;
 }
 
 void PDE1dMexInt::evalIC(double x, RealVector &ic)
@@ -220,6 +233,21 @@ void PDE1dMexInt::setNumPde() {
   numPDE = mxGetNumberOfElements(initCond);
   if (initCond)
     mxDestroyArray(initCond);
+}
+
+void PDE1dMexInt::setNumOde()
+{
+  mxArray *initCond = 0;
+  const mxArray *funcInp[] = { odeIcFun};
+  int err = mexCallMATLAB(1, &initCond, 2,
+    const_cast<mxArray**>(funcInp), "feval");
+  if (err)
+    mexErrMsgIdAndTxt("pde1d:mexCallMATLAB",
+    "Error in mexCallMATLAB.\n");
+  numODE = mxGetNumberOfElements(initCond);
+  if (initCond)
+    mxDestroyArray(initCond);
+  printf("numODE=%d\n", numODE);
 }
 
 std::string PDE1dMexInt::getFuncNameFromHandle(const mxArray *fh)

@@ -43,7 +43,7 @@ namespace {
   PDE1dOptions getOptions(const mxArray *opts) {
     if (!mxIsStruct(opts))
       mexErrMsgIdAndTxt("pde1d:optins_type", 
-      "The 7th, options argument to " FUNC_NAME " must be a struct.");
+      "The last options argument to " FUNC_NAME " must be a struct.");
     PDE1dOptions pdeOpts;
     int n = mxGetNumberOfFields(opts);
     for (int i = 0; i < n; i++) {
@@ -102,14 +102,26 @@ void PDE1dWarningMsg(const char *id, const char *msg) {
   mexWarnMsgIdAndTxt(id, msg);
 }
 
-// solution = pde1d(cordSysType,pdeFunc,icFunc,bcFunc,meshPts,timePts)
+/*
+   solution = pde1d(m,pdeFunc,icFunc,bcFunc,meshPts,timePts)
+   solution = pde1d(m,pdeFunc,icFunc,bcFunc,meshPts,timePts,options)
+   solution = pde1d(m,pdeFunc,icFunc,bcFunc,meshPts,timePts,
+      odefun,odeIcFunc,odeMesh)
+*/
 
 void mexFunction(int nlhs, mxArray*
   plhs[], int nrhs, const mxArray *prhs[])
 {
-  if (nrhs != 6 && nrhs != 7)
+  int optsArg = -1;
+  if (nrhs == 7)
+    optsArg = 6;
+  else if(nrhs == 10)
+    optsArg = 9;
+  else if(nrhs != 6 && nrhs != 9)
     mexErrMsgIdAndTxt("pde1d:nrhs", 
-    FUNC_NAME " requires six or seven input arguments.");
+    "Illegal number of input arguments passed to " FUNC_NAME);
+
+  const bool hasODE = nrhs > 7;
 
   const mxArray *pM = prhs[0];
   if (! mxIsNumeric(pM) || mxGetNumberOfElements(pM) != 1) {
@@ -146,8 +158,8 @@ void mexFunction(int nlhs, mxArray*
     "Length of argument \"timePts\", must be at least three.");
 
   PDE1dOptions opts;
-  if (nrhs == 7)
-    opts = getOptions(prhs[6]);
+  if (optsArg > 0)
+    opts = getOptions(prhs[optsArg]);
 
   if(nlhs > 1)
     mexErrMsgIdAndTxt("pde1d:nlhs", "pde1d returns only a single matrix.");
@@ -159,6 +171,8 @@ void mexFunction(int nlhs, mxArray*
   try {
     PDE1dMexInt pde(m, prhs[1], prhs[2], prhs[3],
       prhs[4], prhs[5]);
+    if (hasODE)
+      pde.setODEDefn(prhs[6], prhs[7], prhs[8]);
     numPde = pde.getNumEquations();
     numPts = pde.numNodes();
     PDE1dImpl pdeImpl(pde, opts);

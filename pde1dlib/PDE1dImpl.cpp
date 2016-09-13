@@ -41,12 +41,12 @@ using std::endl;
 #if SUN_USING_SPARSE
 #include "FiniteDiffJacobian.h"
 #endif
-
-typedef Eigen::Map<Eigen::VectorXd> MapVec;
-typedef Eigen::Map<Eigen::MatrixXd> MapMat;
+#include "ShapeFunction.h"
 
 #define DEBUG_MATS 0
+#define OLD_SHAPE 0
 
+#if OLD_SHAPE
 namespace {
   // shape functions and derivatives for 2-node element
   void shapeLine2(double r, double shp[]) {
@@ -59,6 +59,7 @@ namespace {
     ds[1] = .5;
   }
 }
+#endif
 
 
 PDE1dImpl::PDE1dImpl(PDE1dDefn &pde, PDE1dOptions &options) : 
@@ -72,7 +73,8 @@ pde(pde), options(options)
   checkIncreasing(tspan, 6, "timePts");
   numNodes = mesh.size();
   numTimes = tspan.size();
-  numDepVars = pde.getNumEquations();
+  numODE = pde.getNumODE();
+  numDepVars = pde.getNumEquations() - numODE;
   numFEMEqns = numNodes*numDepVars;
   dirConsFlagsLeft.resize(numDepVars);
   dirConsFlagsRight.resize(numDepVars);
@@ -100,6 +102,7 @@ pde(pde), options(options)
   coeffs.f.resize(numDepVars);
   coeffs.s.resize(numDepVars);
 
+  sf = std::make_unique<ShapeFunction2>();
 }
 
 
@@ -354,8 +357,13 @@ void PDE1dImpl::calcGlobalEqns(double t, T &u, T &up,
     double pt;
     intRule->getPoint(i, pt, intWts[i]);
     intPts[i] = pt;
+#if OLD_SHAPE
     shapeLine2(pt, N.col(i).data());
     dShapeLine2(pt, dN.col(i).data());
+#else
+    sf->N(pt, N.col(i).data());
+    sf->dNdr(pt, dN.col(i).data());
+#endif
   }
 #if 0
   cout << "intPts=" << intPts.transpose() << endl;
@@ -456,8 +464,13 @@ void PDE1dImpl::calcGlobalEqns(double t, T &u, T &up,
       double pt;
       intRule->getPoint(i, pt, intWts[i]);
       intPts[i] = pt;
+#if OLD_SHAPE
       shapeLine2(pt, N.col(i).data());
       dShapeLine2(pt, dN.col(i).data());
+#else
+      sf->N(pt, N.col(i).data());
+      sf->dNdr(pt, dN.col(i).data());
+#endif
     }
 #if 0
     cout << "intPts=" << intPts.transpose() << endl;
@@ -644,7 +657,11 @@ void PDE1dImpl::setAlgVarFlags(N_Vector id)
   double xi[] = { -1, 1 };
   for (int i = 0; i < numElemNodes; i++) {
     double pt = xi[i];
+#if OLD_SHAPE
     dShapeLine2(pt, dN.col(i).data());
+#else
+    sf->dNdr(pt, dN.col(i).data());
+#endif
   }
  
   duPts.resize(numDepVars, numNodes);

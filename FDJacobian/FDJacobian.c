@@ -20,6 +20,13 @@ typedef int logical;
 #include <algorithm>
 using std::max;
 using std::min;
+#else
+#ifndef max
+#define max(a,b) ({ a > b ? a : b; })
+#endif
+#ifndef min
+#define min(a,b) ({ a < b ? a : b; })
+#endif
 #endif
 
 #include "FDJacobian.h"
@@ -29,32 +36,32 @@ using std::min;
 
 static integer c_n1 = -1;
 
-int dsm_(integer *m,  integer *n,  integer *npairs, 
+int dsm_(const integer *m,  const integer *n,  const integer *npairs, 
    integer *indrow, integer *indcol, integer *ngrp, integer *maxgrp, integer *
 	mingrp, integer *info, integer *ipntr, integer *jpntr, integer *iwa, 
-	 integer *liwa)
+	 const integer *liwa)
 {
     /* System generated locals */
     integer i__1, i__2, i__3;
 
     /* Local variables */
     static integer i__, j, k, jp, ir;
-    extern /* Subroutine */ int ido_(integer *, integer *, integer *, integer 
+    extern /* Subroutine */ int ido_(const integer *, const integer *, integer *, integer 
 	    *, integer *, integer *, integer *, integer *, integer *, integer 
-	    *, integer *, integer *, integer *), seq_(integer *, integer *, 
+	    *, integer *, integer *, integer *), seq_(const integer *, integer *, 
 	    integer *, integer *, integer *, integer *, integer *, integer *, 
-	    integer *), slo_(integer *, integer *, integer *, integer *, 
+	    integer *), slo_(const integer *, integer *, integer *, integer *, 
 	    integer *, integer *, integer *, integer *, integer *, integer *, 
 	    integer *, integer *);
     static integer nnz;
-    extern /* Subroutine */ int degr_(integer *, integer *, integer *, 
-	    integer *, integer *, integer *, integer *), setr_(integer *, 
-	    integer *, integer *, integer *, integer *, integer *, integer *);
+    extern /* Subroutine */ int degr_(const integer *, integer *, integer *, 
+	    integer *, integer *, integer *, integer *), setr_(const integer *, 
+	    const integer *, integer *, integer *, integer *, integer *, integer *);
     static integer maxclq;
-    extern /* Subroutine */ int srtdat_(integer *, integer *, integer *, 
+    extern /* Subroutine */ int srtdat_(const integer *, const integer *, integer *, 
 	    integer *, integer *, integer *);
     static integer numgrp;
-    extern /* Subroutine */ int numsrt_(integer *, integer *, integer *, 
+    extern /* Subroutine */ int numsrt_(const integer *, integer *, integer *, 
 	    integer *, integer *, integer *, integer *);
 
 /*     ********** */
@@ -310,7 +317,7 @@ int dsm_(integer *m,  integer *n,  integer *npairs,
 
 } /* dsm_ */
 
-/* Subroutine */ int degr_(integer *n, integer *indrow, integer *jpntr, 
+/* Subroutine */ int degr_(const integer *n, integer *indrow, integer *jpntr, 
 	integer *indcol, integer *ipntr, integer *ndeg, integer *iwa)
 {
     /* System generated locals */
@@ -441,7 +448,7 @@ int dsm_(integer *m,  integer *n,  integer *npairs,
 
 } /* degr_ */
 
-/* Subroutine */ int ido_(integer *m, integer *n, integer *indrow, integer *
+/* Subroutine */ int ido_(const integer *m, const integer *n, integer *indrow, integer *
 	jpntr, integer *indcol, integer *ipntr, integer *ndeg, integer *list, 
 	integer *maxclq, integer *iwa1, integer *iwa2, integer *iwa3, integer 
 	*iwa4)
@@ -452,7 +459,7 @@ int dsm_(integer *m,  integer *n,  integer *npairs,
     /* Local variables */
     static integer ic, ip, jp, ir, jcol, ncomp, maxinc, numinc, numord, 
 	    maxlst, numwgt, numlst;
-    extern /* Subroutine */ int numsrt_(integer *, integer *, integer *, 
+    extern /* Subroutine */ int numsrt_(const integer *, integer *, integer *, 
 	    integer *, integer *, integer *, integer *);
 
 /*     ********** */
@@ -747,7 +754,7 @@ L100:
 
 } /* ido_ */
 
-/* Subroutine */ int numsrt_(integer *n, integer *nmax, integer *num, integer 
+/* Subroutine */ int numsrt_(const integer *n, integer *nmax, integer *num, integer 
 	*mode, integer *index, integer *last, integer *next)
 {
     /* System generated locals */
@@ -879,7 +886,7 @@ L40:
 
 } /* numsrt_ */
 
-/* Subroutine */ int seq_(integer *n, integer *indrow, integer *jpntr, 
+/* Subroutine */ int seq_(const integer *n, integer *indrow, integer *jpntr, 
 	integer *indcol, integer *ipntr, integer *list, integer *ngrp, 
 	integer *maxgrp, integer *iwa)
 {
@@ -1040,7 +1047,7 @@ L50:
 
 } /* seq_ */
 
-/* Subroutine */ int setr_(integer *m, integer *n, integer *indrow, integer *
+/* Subroutine */ int setr_(const integer *m, const integer *n, integer *indrow, integer *
 	jpntr, integer *indcol, integer *ipntr, integer *iwa)
 {
     /* System generated locals */
@@ -1154,7 +1161,7 @@ L50:
 
 } /* setr_ */
 
-/* Subroutine */ int slo_(integer *n, integer *indrow, integer *jpntr, 
+/* Subroutine */ int slo_(const integer *n, integer *indrow, integer *jpntr, 
 	integer *indcol, integer *ipntr, integer *ndeg, integer *list, 
 	integer *maxclq, integer *iwa1, integer *iwa2, integer *iwa3, integer 
 	*iwa4)
@@ -1421,7 +1428,7 @@ L80:
 
 } /* slo_ */
 
-/* Subroutine */ int srtdat_(integer *n, integer *nnz, integer *indrow, 
+/* Subroutine */ int srtdat_(const integer *n, const integer *nnz, integer *indrow, 
 	integer *indcol, integer *jpntr, integer *iwa)
 {
     /* System generated locals */
@@ -1561,7 +1568,7 @@ L40:
 
 } /* srtdat_ */
 
-int fdjs_( integer *m,  integer *n,  logical *col, 
+int fdjs_( const integer *m,  const integer *n,  const logical *col, 
   integer *ind,
 	 integer *npntr, integer *ngrp, integer *numgrp, real *d__, real *
 	fjacd, real *fjac)

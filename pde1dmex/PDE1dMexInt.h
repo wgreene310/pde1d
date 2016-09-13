@@ -44,6 +44,9 @@ public:
     const RealMatrix &u, const RealMatrix &DuDx, PDEVec &pde);
   virtual RealVector getMesh();
   virtual RealVector getTimeSpan();
+  void setODEDefn(const mxArray *odeFun, const mxArray *icFun,
+    const mxArray *odeMesh);
+  virtual bool hasODE() const { return numODE>0; }
 private:
   static void setScalar(double x, mxArray *a) {
     double *p = mxGetPr(a); p[0] = x;
@@ -66,14 +69,16 @@ private:
     setMxImpl(v, a);
   }
   void setNumPde();
+  void setNumOde();
   void callMatlab(const mxArray *inArgs[], int nargin,
     RealVector *outArgs[], int nargout);
   void callMatlab(const mxArray *inArgs[], int nargin,
     RealMatrix *outArgs[], int nargout);
   static std::string getFuncNameFromHandle(const mxArray *fh);
-  int mCoord, numPDE;
+  int mCoord, numPDE, numODE;
   RealVector mesh, tSpan;
   const mxArray *pdefun, *icfun, *bcfun, *xmesh, *tspan;
+  const mxArray *odefun, *odeIcFun, *odeMesh;
 
   mxArray *mxX1, *mxX2, *mxT; // scalar x and t
   mxArray *mxVec1, *mxVec2;

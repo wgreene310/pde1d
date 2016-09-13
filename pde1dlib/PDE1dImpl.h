@@ -17,6 +17,7 @@
 #define PDE1dImpl_h
 
 #include <vector>
+#include <memory>
 
 #include <Eigen/SparseCore>
 typedef Eigen::SparseMatrix<double> SparseMat;
@@ -28,6 +29,7 @@ typedef Eigen::SparseMatrix<double> SparseMat;
 
 class PDE1dOptions;
 class FiniteDiffJacobian;
+class ShapeFunction;
 
 class PDE1dImpl {
 public:
@@ -55,7 +57,7 @@ private:
   GausLegendreIntRule *intRule;
   RealVector mesh, tspan;
   int numNodes, numTimes;
-  int numDepVars, numFEMEqns;
+  int numDepVars, numODE, numFEMEqns;
   static const int numElemNodes = 2;
   std::vector<bool> dirConsFlagsLeft, dirConsFlagsRight;
   RealMatrix y0;
@@ -67,6 +69,7 @@ private:
   RealMatrix uPts, duPts;
   FiniteDiffJacobian *fDiffJac;
   void *ida;
+  std::unique_ptr<ShapeFunction> sf;
 };
 
 #define FUNC_NAME "pde1d"

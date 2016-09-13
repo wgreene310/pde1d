@@ -1,9 +1,6 @@
 #pragma once
 
-#include <Eigen/Core>
-
-typedef Eigen::VectorXd RealVector;
-typedef Eigen::MatrixXd RealMatrix;
+#include <MatrixTypes.h>
 
 class PDE1dDefn
 {
@@ -30,6 +27,11 @@ public:
   };
   virtual void evalPDE(RealVector x, double t,
     const RealMatrix &u, const RealMatrix &DuDx, PDEVec &pde) {}
+  virtual bool hasODE() const { return false; }
+  virtual int getNumODE() const { return 0; }
+  struct ODE {
+    RealVector c, f;
+  };
 };
 
 struct PDESolution {
