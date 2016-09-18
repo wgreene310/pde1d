@@ -13,33 +13,26 @@
 // You should have received a copy of the GNU General Public License along with
 // this program; if not, see <http://www.gnu.org/licenses/>.
 
-#include <stdio.h>
+#pragma once
 
-#include "SunVector.h"
-#include "PDE1dException.h"
-
-
-SunVector::SunVector(size_t n) : _SundialsVector_(N_VNew_Serial(n)),
-Eigen::Map<Eigen::VectorXd>(NV_DATA_S(nv), n)
+class ShapeFunction
 {
-  if (!nv) {
-    char msg[256];
-    sprintf(msg, "Sundials error: unable to allocate serial vector of "
-      "length %zu", n);
-    throw PDE1dException("pde1d:sundials_mem_alloc", msg);
-  }
-  isExternal = false;
-}
+public:
+  virtual void N(double r, double *vals) const =0;
+  virtual void dNdr(double r, double *vals) const  = 0;
+};
 
-SunVector::SunVector(N_Vector nv) : _SundialsVector_(nv),
-Eigen::Map<Eigen::VectorXd>(NV_DATA_S(nv), NV_LENGTH_S(nv))
+class ShapeFunction2 : public ShapeFunction
 {
-  isExternal = true;
-}
+public:
+  virtual void N(double r, double *vals) const;
+  virtual void dNdr(double r, double *vals) const;
+};
 
-SunVector::~SunVector()
+class ShapeFunction3 : public ShapeFunction
 {
-  if (nv && !isExternal)
-    N_VDestroy_Serial(nv);
-}
+public:
+  virtual void N(double r, double *vals) const;
+  virtual void dNdr(double r, double *vals) const;
+};
 

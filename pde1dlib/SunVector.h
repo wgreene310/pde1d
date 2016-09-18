@@ -17,22 +17,44 @@
 #define SunVector_h
 
 #include <stddef.h>
+#include <assert.h>
+
+#include <Eigen/Core>
 
 #include <nvector/nvector_serial.h>
 
-class SunVector {
+struct _SundialsVector_ {
+  _SundialsVector_(N_Vector nv) : nv(nv) {}
+  N_Vector nv;
+};
+
+
+class SunVector : public _SundialsVector_ ,
+  public Eigen::Map<Eigen::VectorXd>
+{
 public:
-  SunVector(size_t n);
-  ~SunVector();
-  void setConstant(double c);
-  double &operator[](int i) {
-    return NV_DATA_S(nv)[i];
+  explicit SunVector(size_t n);
+  explicit SunVector(N_Vector nv);
+  SunVector &operator=(const SunVector &rhs) {
+    if (this == &rhs) return *this;
+    assert(rows() == rhs.rows());
+    assert(cols() == 1 && rhs.cols() == 1);
+    Eigen::Map<Eigen::VectorXd>::operator=(rhs);
+    return *this;
   }
-  N_Vector operator()() {
+  template<class T>
+  SunVector &operator=(const T &rhs) {
+    assert(rows() == rhs.rows());
+    assert(cols() == 1 && rhs.cols() == 1);
+    Eigen::Map<Eigen::VectorXd>::operator=(rhs);
+    return *this;
+  }
+  ~SunVector();
+  N_Vector getNV() {
     return nv;
   }
 private:
-  N_Vector nv;
+  bool isExternal;
 };
 
 #endif

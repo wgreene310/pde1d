@@ -1,0 +1,67 @@
+CC=mkoctfile -mex
+CXX=mkoctfile -mex
+
+ifeq ($(findstring Windows, $(OS)),Windows)
+	EIGEN=$(HOME)/src/Eigen/eigen-3.2.6
+	BOOST_ROOT=C:/boost/boost_1_57_0
+	OCTAVE_ROOT=c:/Octave/Octave-4.0.0
+	OCTAVE_INC=$(OCTAVE_ROOT)/include/octave-4.0.0/octave
+	SUNDIALS_ROOT=$(HOME)/src/sundials-2.6.2/
+	SUNDIALS_INC=-I$(SUNDIALS_ROOT)/include -I./ -Ic:/wgreene/tests/c++/sundialsExamples/pde1dmex_mingw
+	SUNDIALS_LDIR=$(SUNDIALS_ROOT)
+	LIB_OCT=-L$(OCTAVE_ROOT)/lib/octave/4.0.0 -loctave.dll -loctinterp.dll
+	SUITESPARSE_LIB_DIR = $(HOME)/src/sparse_solvers/SuiteSparse/libs/mingw32
+	SUITESPARSE_LIBS=-L$(SUITESPARSE_LIB_DIR) \
+	                -lklu -lamd -lcolamd -lbtf -lsuitesparseconfig
+else
+    UNAME_S := $(shell uname -s)
+		ifeq ($(UNAME_S),Linux)
+		  EIGEN=$(HOME)/src/Eigen/eigen-3.2.2
+      OCTAVE_ROOT=/opt/octave-4.0.0
+      OCTAVE_INC=$(OCTAVE_ROOT)/include/octave-4.0.2/octave
+      SUNDIALS_ROOT=/usr/local/include/sundials
+      SUNDIALS_LDIR=/usr/local/lib
+      SUNDIALS_INC=-I$(SUNDIALS_ROOT)/include -I./ 
+			BOOST_ROOT=/usr/local
+	    SUITESPARSE_LIBS= -L/usr/lib/i386-linux-gnu -l:libklu.a -l:libamd.a \
+			                  -l:libcolamd.a -l:libbtf.a -lsuitesparseconfig
+		endif
+		ifeq ($(UNAME_S),Darwin)
+		  EIGEN=$(HOME)/src/eigen/eigen-3.2.9
+			OCTAVE_ROOT=/Applications/Octave.app/Contents/Resources/usr
+			OCTAVE_INC=$(OCTAVE_ROOT)/include/octave-4.0.2/octave
+			SUNDIALS_ROOT=$(HOME)/sundials_inst
+			SUNDIALS_INC=-I$(SUNDIALS_ROOT)/include
+			SUNDIALS_LDIR=$(SUNDIALS_ROOT)/lib
+			BOOST_ROOT=/opt/local/include
+			SUITESPARSE_LIBS= -lklu -lamd -lcolamd -lbtf -lsuitesparseconfig
+		endif
+endif
+
+INC=-I$(EIGEN) -I$(OCTAVE_INC) $(SUNDIALS_INC) \
+     -Ipde1dlib -IFDJacobian -I$(BOOST_ROOT)
+
+CXXFLAGS= -g -O2 -std=gnu++0x -Wno-deprecated-declarations $(INC)
+
+VPATH=./pde1dlib ./pde1dmex ./FDJacobian
+
+LIBS=$(SUNDIALS_LDIR)/libsundials_ida.a $(SUNDIALS_LDIR)/libsundials_nvecserial.a \
+     $(LIB_OCT) $(SUITESPARSE_LIBS)
+
+OBJS=pde1dmex.o PDE1dMexInt.o pde1dlib/PDE1dImpl.o pde1dlib/PDE1dDefn.o \
+     GausLegendreIntRule.o SunVector.o FDJacobian.o FiniteDiffJacobian.o \
+		 ShapeFunction.o
+
+pde1d.mex: $(OBJS)
+	mkoctfile -mex  $(OBJS) $(LIBS) -o pde1d.mex
+
+clean:
+	$(RM) *.o ./pde1dlib/*.o ./pde1dmex/*.o
+
+distclean: clean
+	$(RM) pde1d.mex
+	
+test:
+	#echo $(findstring Linux, $(OS))
+	echo $(OS)
+

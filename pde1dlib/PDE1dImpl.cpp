@@ -102,7 +102,11 @@ pde(pde), options(options)
   coeffs.f.resize(numDepVars);
   coeffs.s.resize(numDepVars);
 
+#if 0
   sf = std::make_unique<ShapeFunction2>();
+#else
+  sf = std::unique_ptr<ShapeFunction2>(new ShapeFunction2);
+#endif
 }
 
 
@@ -135,9 +139,7 @@ namespace {
 
     PDE1dImpl *pde = (PDE1dImpl*) user_data;
 
-    MapVec u(NV_DATA_S(uu), NV_LENGTH_S(uu));
-    MapVec uDot(NV_DATA_S(up), NV_LENGTH_S(up));
-    MapVec res(NV_DATA_S(resval), NV_LENGTH_S(resval));
+    SunVector u(uu), uDot(up), res(resval);
 
 #define DEBUG 0
 
@@ -146,9 +148,7 @@ namespace {
     print(uu, "u");
     print(up, "up");
 #endif
-
     pde->calcRHSODE(tres, u, uDot, res);
-
 
 #if DEBUG
     print(resval, "resval");
@@ -165,8 +165,8 @@ namespace {
     N_Vector tmp1, N_Vector tmp2, N_Vector tmp3) {
 
     PDE1dImpl *fem = (PDE1dImpl*) user_data;
-
-    fem->calcJacobianODE(t, c_j, uu, up, r, Jac);
+    SunVector u(uu), uDot(up), res(r);
+    fem->calcJacobianODE(t, c_j, u, uDot, res, Jac);
 #if 0
     PrintSparseMat(Jac);
     return 1;
@@ -218,7 +218,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   sol.u.resize(numTimes, numFEMEqns);
   sol.time.resize(numTimes);
 
-  int neqImpl = numFEMEqns;
+  const int neqImpl = numFEMEqns;
   /* Create vectors uu, up, res, constraints, id. */
   SunVector uu(neqImpl), up(neqImpl), res(neqImpl), id(neqImpl);
   double *udata = &uu[0];
@@ -233,7 +233,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   double initResNorm = resVec.dot(resVec);
   printf("initResNorm=%12.3e\n", sqrt(initResNorm));
 #endif
-  setAlgVarFlags(id());
+  setAlgVarFlags(id.getNV());
 
   /* Call IDACreate and IDAMalloc to initialize solution */
   ida = IDACreate();
@@ -242,12 +242,12 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   int ier = IDASetUserData(ida, this);
   check_flag(&ier, "IDASetUserData", 1);
 #if ! DAE_Y_INIT
-  ier = IDASetId(ida, id());
+  ier = IDASetId(ida, id.getNV());
   check_flag(&ier, "IDASetId", 1);
 #endif
   double t0 = 0, tf = .05;
   IDAResFn resFn = resFunc;
-  ier = IDAInit(ida, resFn, t0, uu(), up());
+  ier = IDAInit(ida, resFn, t0, uu.getNV(), up.getNV());
   check_flag(&ier, "IDAInit", 1);
   const double relTol = options.getRelTol(), absTol = options.getAbsTol();
   ier = IDASStolerances(ida, relTol, absTol);
@@ -273,6 +273,8 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   ier = IDADense(ida, neqImpl);
   check_flag(&ier, "IDADense", 1);
 #endif
+  //testICCalc(uu, up, res, id, tf);
+  iCCalc(uu, up, res);
 
   // Call IDACalcIC to correct the initial values. 
 #if DAE_Y_INIT
@@ -286,7 +288,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
       "Often this is caused by an incorrect specification of the boundary conditions.");
   }
   SunVector yy0_mod(neqImpl), yp0_mod(neqImpl);
-  ier = IDAGetConsistentIC(ida, yy0_mod(), yp0_mod());
+  ier = IDAGetConsistentIC(ida, yy0_mod.getNV(), yp0_mod.getNV());
   check_flag(&ier, "IDAGetConsistentIC", 1);
 #if 0
   SunVector diff_vec(neqImpl), unit_vec(neqImpl);
@@ -302,6 +304,8 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
       "to create a consistent solution to the equations at "
       "the initial time.\n");
   }
+  double icResidErr = calcResidualNorm(0, yy0_mod, yp0_mod, res);
+  //printf("Error in initial conditions = %12.3e\n", icResidErr);
 #if 0
   print(uu(), "yy0");
   print(yy0_mod(), "yy0_mod");
@@ -317,7 +321,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   sol.u.row(0) = y0Mod;
   for (int i = 1; i < numTimes; i++) {
     double tout=tspan(i), tret;
-    ier = IDASolve(ida, tout, &tret, uu(), up(), IDA_NORMAL);
+    ier = IDASolve(ida, tout, &tret, uu.getNV(), up.getNV(), IDA_NORMAL);
     if (ier < 0) {
       printStats();
       char msg[1024];
@@ -575,9 +579,8 @@ void PDE1dImpl::calcGlobalEqns(double t, T &u, T &up,
     //cout << "F\n" << F << endl;
   }
 
-
-template<class T>
-void PDE1dImpl::calcRHSODE(double time, T &u, T &up, T &R)
+  void PDE1dImpl::calcRHSODE(double time, SunVector &u, SunVector &up, 
+    SunVector &R)
 {
   RealVector Cxd = RealVector::Zero(numFEMEqns);
   RealVector F = RealVector::Zero(numFEMEqns);
@@ -750,13 +753,13 @@ void PDE1dImpl::printStats()
     &hlast, &hcur, &tcur);
   long nniters, nncfails;
   flag = IDAGetNonlinSolvStats(ida, &nniters, &nncfails);
-  printf("Number of internal time steps = %d\n", nsteps);
-  printf("Number of residual function calls = %d\n", nrevals);
-  printf("Number of Jacobian calculations = %d\n", nlinsetups);
-  printf("Number of solution accuracy test failures = %d\n", netfails);
+  printf("Number of internal time steps = %ld\n", nsteps);
+  printf("Number of residual function calls = %ld\n", nrevals);
+  printf("Number of Jacobian calculations = %ld\n", nlinsetups);
+  printf("Number of solution accuracy test failures = %ld\n", netfails);
   printf("Last internal time step size = %12.3e\n", hlast);
-  printf("Number of nonlinear iterations = %d\n", nniters);
-  printf("Number of nonlinear convergence failures = %d\n", nncfails);
+  printf("Number of nonlinear iterations = %ld\n", nniters);
+  printf("Number of nonlinear convergence failures = %ld\n", nncfails);
 }
 
 void PDE1dImpl::calcJacPattern(Eigen::SparseMatrix<double> &J)
@@ -782,8 +785,53 @@ void PDE1dImpl::calcJacPattern(Eigen::SparseMatrix<double> &J)
   J.makeCompressed();
 }
 
-template<class T, class T2>
-void PDE1dImpl::calcJacobianODE(double time, double beta, T &u, T &up, T &res,
-  T2 Jac) {
-  fDiffJac->calcJacobian(time, 1, beta, u, up, res, resFunc, this, Jac);
+void PDE1dImpl::calcJacobianODE(double time, double beta, SunVector &u, 
+  SunVector &up, SunVector &res, SlsMat Jac)
+{
+  fDiffJac->calcJacobian(time, 1, beta, u.getNV(), up.getNV(), res.getNV(),
+    resFunc, this, Jac);
+}
+
+void PDE1dImpl::testICCalc(SunVector &uu, SunVector &up, SunVector &res,
+  SunVector &id, double tf)
+{
+  resFunc(0, uu.getNV(), up.getNV(), res.getNV(), this);
+  print(uu.getNV(), "u");
+  print(up.getNV(), "up");
+  print(res.getNV(), "res");
+  // calc jac matrices
+  SparseMat dfDy(numFEMEqns, numFEMEqns), dfDyp(numFEMEqns, numFEMEqns);
+  fDiffJac->calcJacobian(0, 1, 0, uu.getNV(), up.getNV(), res.getNV(), 
+    resFunc, this, dfDy);
+  cout << "dfDy\n" << dfDy.toDense() << endl;
+  fDiffJac->calcJacobian(0, 0, 1, uu.getNV(), up.getNV(), res.getNV(), 
+    resFunc, this, dfDyp);
+  cout << "dfDyp\n" << dfDyp.toDense() << endl;
+
+  int ier = IDACalcIC(ida, IDA_YA_YDP_INIT, tf);
+  print(id.getNV(), "id vector");
+  SunVector yy0_mod(numFEMEqns), yp0_mod(numFEMEqns);
+  ier = IDAGetConsistentIC(ida, yy0_mod.getNV(), yp0_mod.getNV());
+  print(yy0_mod.getNV(), "ICy");
+  print(yp0_mod.getNV(), "ICyp");
+
+  throw PDE1dException("pde1d:test", "IC test completed");
+}
+
+void PDE1dImpl::iCCalc(SunVector &uu, SunVector &up, SunVector &res)
+{
+  SparseMat dfDy(numFEMEqns, numFEMEqns), dfDyp(numFEMEqns, numFEMEqns);
+  fDiffJac->calcJacobian(0, 1, 0, uu.getNV(), up.getNV(), res.getNV(), 
+    resFunc, this, dfDy);
+  //cout << "dfDy\n" << dfDy.toDense() << endl;
+  fDiffJac->calcJacobian(0, 0, 1, uu.getNV(), up.getNV(), res.getNV(), resFunc, this, dfDyp);
+  //cout << "dfDyp\n" << dfDyp.toDense() << endl;
+}
+
+double PDE1dImpl::calcResidualNorm(double t, SunVector &uu, SunVector &up, SunVector &res)
+{
+  resFunc(t, uu.getNV(), up.getNV(), res.getNV(), this);
+  MapVec r(&res[0], res.size());
+  double rRms = sqrt(r.dot(r));
+  return rRms;
 }

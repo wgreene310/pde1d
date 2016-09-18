@@ -13,33 +13,26 @@
 // You should have received a copy of the GNU General Public License along with
 // this program; if not, see <http://www.gnu.org/licenses/>.
 
-#include <stdio.h>
+#include "ShapeFunction.h"
 
-#include "SunVector.h"
-#include "PDE1dException.h"
-
-
-SunVector::SunVector(size_t n) : _SundialsVector_(N_VNew_Serial(n)),
-Eigen::Map<Eigen::VectorXd>(NV_DATA_S(nv), n)
-{
-  if (!nv) {
-    char msg[256];
-    sprintf(msg, "Sundials error: unable to allocate serial vector of "
-      "length %zu", n);
-    throw PDE1dException("pde1d:sundials_mem_alloc", msg);
-  }
-  isExternal = false;
+void ShapeFunction2::N(double r, double *func) const {
+  func[0] = .5*(1 - r);
+  func[1] = .5*(1 + r);
 }
 
-SunVector::SunVector(N_Vector nv) : _SundialsVector_(nv),
-Eigen::Map<Eigen::VectorXd>(NV_DATA_S(nv), NV_LENGTH_S(nv))
-{
-  isExternal = true;
+void ShapeFunction2::dNdr(double r, double *df) const {
+  df[0] = -.5;
+  df[1] = .5;
 }
 
-SunVector::~SunVector()
-{
-  if (nv && !isExternal)
-    N_VDestroy_Serial(nv);
+void ShapeFunction3::N(double r, double *func) const {
+  func[0] = -r*(1 - r) / 2.;
+  func[1] = r*(1 + r) / 2.;
+  func[2] = 1 - r*r;
 }
 
+void ShapeFunction3::dNdr(double r, double *df) const {
+  df[0] = (-1 + 2 * r) / 2.;
+  df[1] = (1 + 2 * r) / 2.;
+  df[2] = -2 * r;
+}

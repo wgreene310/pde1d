@@ -30,17 +30,17 @@ typedef Eigen::SparseMatrix<double> SparseMat;
 class PDE1dOptions;
 class FiniteDiffJacobian;
 class ShapeFunction;
+class SunVector;
+struct _SlsMat;
 
 class PDE1dImpl {
 public:
   PDE1dImpl(PDE1dDefn &pde, PDE1dOptions &options);
   ~PDE1dImpl();
   int solveTransient(PDESolution &sol);
-  template<class T>
-  void calcRHSODE(double time, T &u, T &up, T &R);
-  template<class T, class T2>
-  void calcJacobianODE(double time, double alpha, T &u, T &up, T &R,
-    T2 Jac);
+  void calcRHSODE(double time, SunVector &u, SunVector &up, SunVector &R);
+  void calcJacobianODE(double time, double alpha, SunVector &u, 
+    SunVector &up, SunVector &R, _SlsMat *Jac);
   void testMats();
 private:
   template<class T, class TR>
@@ -52,6 +52,10 @@ private:
   void checkCoeffs(const PDE1dDefn::PDE &coeffs);
   void printStats();
   void calcJacPattern(Eigen::SparseMatrix<double> &jac);
+  void testICCalc(SunVector &uu, SunVector &up, SunVector &res,
+    SunVector &id, double tf);
+  void iCCalc(SunVector &uu, SunVector &up, SunVector &res);
+  double calcResidualNorm(double t, SunVector &uu, SunVector &up, SunVector &res);
   PDE1dDefn &pde;
   PDE1dOptions &options;
   GausLegendreIntRule *intRule;
