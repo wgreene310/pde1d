@@ -85,6 +85,10 @@ namespace {
           "The value of the \"Stats\" option must be either \"On\" or \"Off\".");
         pdeOpts.setPrintStats(doStats);
       }
+      else if (boost::iequals(ni, "icmethod")) {
+        int icMethod = (int) mxGetScalar(val);
+        pdeOpts.setICMethod(icMethod);
+      }
       else {
         char msg[1024];
         sprintf(msg, "The options argument contains the field \"%s\".\n"

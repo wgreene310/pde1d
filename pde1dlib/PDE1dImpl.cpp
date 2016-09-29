@@ -42,25 +42,9 @@ using std::endl;
 #include "FiniteDiffJacobian.h"
 #endif
 #include "ShapeFunction.h"
+#include "PDEInitConditions.h"
 
 #define DEBUG_MATS 0
-#define OLD_SHAPE 0
-
-#if OLD_SHAPE
-namespace {
-  // shape functions and derivatives for 2-node element
-  void shapeLine2(double r, double shp[]) {
-    shp[0] = (1 - r) / 2;
-    shp[1] = (1 + r) / 2;
-  }
-
-  void dShapeLine2(double r, double ds[]) {
-    ds[0] = -.5;
-    ds[1] = .5;
-  }
-}
-#endif
-
 
 PDE1dImpl::PDE1dImpl(PDE1dDefn &pde, PDE1dOptions &options) : 
 pde(pde), options(options)
@@ -102,10 +86,23 @@ pde(pde), options(options)
   coeffs.f.resize(numDepVars);
   coeffs.s.resize(numDepVars);
 
+  Cxd.resize(numFEMEqns);
+  F.resize(numFEMEqns);
+  S.resize(numFEMEqns);
+
 #if 0
   sf = std::make_unique<ShapeFunction2>();
 #else
   sf = std::unique_ptr<ShapeFunction2>(new ShapeFunction2);
+#endif
+#if SUN_USING_SPARSE
+  //printf("Using sparse solver.\n");
+  SparseMat P;
+  calcJacPattern(P);
+  numNonZerosJacMax = P.nonZeros();
+  //cout << "P\n" << P << endl;
+  finiteDiffJacobian = 
+    std::unique_ptr<FiniteDiffJacobian>(new FiniteDiffJacobian(P));
 #endif
 }
 
@@ -199,18 +196,6 @@ namespace {
     }
   }
 
-  template<class T>
-  bool initConditionsChanged(const T &ic, const T &icMod, double tol) {
- 
-    for (int i = 0; i < ic.size(); i++) {
-      if (std::abs(ic[i] - icMod[i]) > tol) {
-        //printf("IC: initial=%g, modified=%g\n", ic[i], icMod[i]);
-        return true;
-      }
-    }
-    return false;
-  }
-
 }
 
 int PDE1dImpl::solveTransient(PDESolution &sol)
@@ -245,9 +230,11 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   ier = IDASetId(ida, id.getNV());
   check_flag(&ier, "IDASetId", 1);
 #endif
-  double t0 = 0, tf = .05;
-  IDAResFn resFn = resFunc;
-  ier = IDAInit(ida, resFn, t0, uu.getNV(), up.getNV());
+  double t0 = tspan(0), tf = tspan(numTimes-1);
+  PDEInitConditions initCond(ida, *this, uu, up);
+  PDEInitConditions::ICPair icPair = initCond.init();
+  ier = IDAInit(ida, resFunc, t0, icPair.first->getNV(),
+    icPair.second->getNV());
   check_flag(&ier, "IDAInit", 1);
   const double relTol = options.getRelTol(), absTol = options.getAbsTol();
   ier = IDASStolerances(ida, relTol, absTol);
@@ -256,14 +243,10 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   check_flag(&ier, "IDASetMaxNumSteps", 1);
 #if SUN_USING_SPARSE
   //printf("Using sparse solver.\n");
-  SparseMat P;
-  calcJacPattern(P);
-  //cout << P.toDense() << endl;
-  ier = IDAKLU(ida, numFEMEqns, P.nonZeros());
+  ier = IDAKLU(ida, numFEMEqns, numNonZerosJacMax);
   check_flag(&ier, "IDAKLU", 1);
   ier = IDASlsSetSparseJacFn(ida, jacFunc);
   check_flag(&ier, "IDASlsSetSparseJacFn", 1);
-  fDiffJac = new FiniteDiffJacobian(P);
 #elif BAND_SOLVER
   /* Call IDABand to specify the linear solver. */
   int mu = 2*numDepVars-1, ml = mu;
@@ -274,51 +257,12 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   check_flag(&ier, "IDADense", 1);
 #endif
   //testICCalc(uu, up, res, id, tf);
-  iCCalc(uu, up, res);
 
-  // Call IDACalcIC to correct the initial values. 
-#if DAE_Y_INIT
-  ier = IDACalcIC(ida, IDA_Y_INIT, tf);
-#else
-  ier = IDACalcIC(ida, IDA_YA_YDP_INIT, tf);
-#endif
-  if (ier < 0) {
-    throw PDE1dException("pde1d:consistent_ic",
-      "Unable to calculate a consistent initial solution to the PDE.\n"
-      "Often this is caused by an incorrect specification of the boundary conditions.");
-  }
-  SunVector yy0_mod(neqImpl), yp0_mod(neqImpl);
-  ier = IDAGetConsistentIC(ida, yy0_mod.getNV(), yp0_mod.getNV());
-  check_flag(&ier, "IDAGetConsistentIC", 1);
-#if 0
-  SunVector diff_vec(neqImpl), unit_vec(neqImpl);
-  N_VLinearSum(1, uu(), -1, yy0_mod(), diff_vec());
-  unit_vec.setConstant(1);
-  double normDiff = N_VWrmsNorm(diff_vec(), unit_vec());
-  printf("unit_vec=%12.3e\n", normDiff);
-#endif
-  MapVec uMod(&yy0_mod[0], neqImpl);
-  if (initConditionsChanged(u, uMod, 100*absTol)) {
-    PDE1dWarningMsg("pde1d:init_cond_changed",
-   "User-defined initial conditions were changed "
-      "to create a consistent solution to the equations at "
-      "the initial time.\n");
-  }
-  double icResidErr = calcResidualNorm(0, yy0_mod, yp0_mod, res);
-  //printf("Error in initial conditions = %12.3e\n", icResidErr);
-#if 0
-  print(uu(), "yy0");
-  print(yy0_mod(), "yy0_mod");
-  print(up(), "yp0");
-  print(yp0_mod(), "yp0_mod");
-  // check up
-  //resFn(0, yy0_mod, yp0_mod, res, this);
-  //print(res, "res");
-#endif
+  // second stage of initial conditions calculation
+  initCond.update();
   
   sol.time(0) = tspan(0);
-  MapVec y0Mod(&yy0_mod[0], neqImpl);
-  sol.u.row(0) = y0Mod;
+  sol.u.row(0) = initCond.getU0();
   for (int i = 1; i < numTimes; i++) {
     double tout=tspan(i), tret;
     ier = IDASolve(ida, tout, &tret, uu.getNV(), up.getNV(), IDA_NORMAL);
@@ -361,13 +305,8 @@ void PDE1dImpl::calcGlobalEqns(double t, T &u, T &up,
     double pt;
     intRule->getPoint(i, pt, intWts[i]);
     intPts[i] = pt;
-#if OLD_SHAPE
-    shapeLine2(pt, N.col(i).data());
-    dShapeLine2(pt, dN.col(i).data());
-#else
     sf->N(pt, N.col(i).data());
     sf->dNdr(pt, dN.col(i).data());
-#endif
   }
 #if 0
   cout << "intPts=" << intPts.transpose() << endl;
@@ -468,13 +407,8 @@ void PDE1dImpl::calcGlobalEqns(double t, T &u, T &up,
       double pt;
       intRule->getPoint(i, pt, intWts[i]);
       intPts[i] = pt;
-#if OLD_SHAPE
-      shapeLine2(pt, N.col(i).data());
-      dShapeLine2(pt, dN.col(i).data());
-#else
       sf->N(pt, N.col(i).data());
       sf->dNdr(pt, dN.col(i).data());
-#endif
     }
 #if 0
     cout << "intPts=" << intPts.transpose() << endl;
@@ -582,9 +516,7 @@ void PDE1dImpl::calcGlobalEqns(double t, T &u, T &up,
   void PDE1dImpl::calcRHSODE(double time, SunVector &u, SunVector &up, 
     SunVector &R)
 {
-  RealVector Cxd = RealVector::Zero(numFEMEqns);
-  RealVector F = RealVector::Zero(numFEMEqns);
-  RealVector S = RealVector::Zero(numFEMEqns);
+    Cxd.setZero(); F.setZero(); S.setZero();
 
   if (options.isVectorized() && pde.hasVectorPDEEval())
     calcGlobalEqnsVec(time, u, up, Cxd, F, S);
@@ -660,11 +592,7 @@ void PDE1dImpl::setAlgVarFlags(N_Vector id)
   double xi[] = { -1, 1 };
   for (int i = 0; i < numElemNodes; i++) {
     double pt = xi[i];
-#if OLD_SHAPE
-    dShapeLine2(pt, dN.col(i).data());
-#else
     sf->dNdr(pt, dN.col(i).data());
-#endif
   }
  
   duPts.resize(numDepVars, numNodes);
@@ -788,8 +716,16 @@ void PDE1dImpl::calcJacPattern(Eigen::SparseMatrix<double> &J)
 void PDE1dImpl::calcJacobianODE(double time, double beta, SunVector &u, 
   SunVector &up, SunVector &res, SlsMat Jac)
 {
-  fDiffJac->calcJacobian(time, 1, beta, u.getNV(), up.getNV(), res.getNV(),
-    resFunc, this, Jac);
+  finiteDiffJacobian->calcJacobian(time, 1, beta, u.getNV(), up.getNV(), 
+    res.getNV(), resFunc, this, Jac);
+}
+
+void PDE1dImpl::calcJacobian(double time, double alpha, double beta, SunVector &u,
+  SunVector &up, SunVector &R, SparseMat &Jac)
+{
+  const bool useCD = !true;
+  finiteDiffJacobian->calcJacobian(time, alpha, beta, u.getNV(), up.getNV(), 
+    R.getNV(), resFunc, this, Jac, useCD);
 }
 
 void PDE1dImpl::testICCalc(SunVector &uu, SunVector &up, SunVector &res,
@@ -801,12 +737,16 @@ void PDE1dImpl::testICCalc(SunVector &uu, SunVector &up, SunVector &res,
   print(res.getNV(), "res");
   // calc jac matrices
   SparseMat dfDy(numFEMEqns, numFEMEqns), dfDyp(numFEMEqns, numFEMEqns);
-  fDiffJac->calcJacobian(0, 1, 0, uu.getNV(), up.getNV(), res.getNV(), 
-    resFunc, this, dfDy);
+  finiteDiffJacobian->calcJacobian(0, 1, 0, uu.getNV(), up.getNV(), 
+    res.getNV(), resFunc, this, dfDy);
   cout << "dfDy\n" << dfDy.toDense() << endl;
+#if 0
   fDiffJac->calcJacobian(0, 0, 1, uu.getNV(), up.getNV(), res.getNV(), 
     resFunc, this, dfDyp);
-  cout << "dfDyp\n" << dfDyp.toDense() << endl;
+#else
+  calcJacobian(0, 0, 1, uu, up, res, dfDyp);
+#endif
+  cout << "dfDyp\n" << dfDyp << endl;
 
   int ier = IDACalcIC(ida, IDA_YA_YDP_INIT, tf);
   print(id.getNV(), "id vector");
@@ -816,16 +756,6 @@ void PDE1dImpl::testICCalc(SunVector &uu, SunVector &up, SunVector &res,
   print(yp0_mod.getNV(), "ICyp");
 
   throw PDE1dException("pde1d:test", "IC test completed");
-}
-
-void PDE1dImpl::iCCalc(SunVector &uu, SunVector &up, SunVector &res)
-{
-  SparseMat dfDy(numFEMEqns, numFEMEqns), dfDyp(numFEMEqns, numFEMEqns);
-  fDiffJac->calcJacobian(0, 1, 0, uu.getNV(), up.getNV(), res.getNV(), 
-    resFunc, this, dfDy);
-  //cout << "dfDy\n" << dfDy.toDense() << endl;
-  fDiffJac->calcJacobian(0, 0, 1, uu.getNV(), up.getNV(), res.getNV(), resFunc, this, dfDyp);
-  //cout << "dfDyp\n" << dfDyp.toDense() << endl;
 }
 
 double PDE1dImpl::calcResidualNorm(double t, SunVector &uu, SunVector &up, SunVector &res)

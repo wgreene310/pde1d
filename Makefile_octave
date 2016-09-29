@@ -48,7 +48,7 @@ VPATH=./pde1dlib ./pde1dmex ./FDJacobian
 LIBS=$(SUNDIALS_LDIR)/libsundials_ida.a $(SUNDIALS_LDIR)/libsundials_nvecserial.a \
      $(LIB_OCT) $(SUITESPARSE_LIBS)
 
-OBJS=pde1dmex.o PDE1dMexInt.o pde1dlib/PDE1dImpl.o pde1dlib/PDE1dDefn.o \
+OBJS=pde1dmex.o PDE1dMexInt.o PDE1dImpl.o PDE1dDefn.o PDEInitConditions.o \
      GausLegendreIntRule.o SunVector.o FDJacobian.o FiniteDiffJacobian.o \
 		 ShapeFunction.o
 

@@ -31,6 +31,20 @@ Eigen::Map<Eigen::VectorXd>(NV_DATA_S(nv), n)
   isExternal = false;
 }
 
+SunVector::SunVector(const SunVector &rhs) : 
+_SundialsVector_(N_VNew_Serial(rhs.size())), 
+Eigen::Map<Eigen::VectorXd>(NV_DATA_S(nv), rhs.size())
+{
+  if (!nv) {
+    char msg[256];
+    sprintf(msg, "Sundials error: unable to allocate serial vector of "
+      "length %zu", size());
+    throw PDE1dException("pde1d:sundials_mem_alloc", msg);
+  }
+  Eigen::Map<Eigen::VectorXd>::operator=(rhs);
+  isExternal = false;
+}
+
 SunVector::SunVector(N_Vector nv) : _SundialsVector_(nv),
 Eigen::Map<Eigen::VectorXd>(NV_DATA_S(nv), NV_LENGTH_S(nv))
 {

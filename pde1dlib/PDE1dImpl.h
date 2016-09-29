@@ -41,6 +41,14 @@ public:
   void calcRHSODE(double time, SunVector &u, SunVector &up, SunVector &R);
   void calcJacobianODE(double time, double alpha, SunVector &u, 
     SunVector &up, SunVector &R, _SlsMat *Jac);
+  void calcJacobian(double time, double alpha, double beta, SunVector &u,
+    SunVector &up, SunVector &R, SparseMat &Jac);
+  const PDE1dOptions &getOptions() const {
+    return options;
+  }
+  const RealVector &getTimePoints() const {
+    return tspan;
+  }
   void testMats();
 private:
   template<class T, class TR>
@@ -54,7 +62,6 @@ private:
   void calcJacPattern(Eigen::SparseMatrix<double> &jac);
   void testICCalc(SunVector &uu, SunVector &up, SunVector &res,
     SunVector &id, double tf);
-  void iCCalc(SunVector &uu, SunVector &up, SunVector &res);
   double calcResidualNorm(double t, SunVector &uu, SunVector &up, SunVector &res);
   PDE1dDefn &pde;
   PDE1dOptions &options;
@@ -62,16 +69,18 @@ private:
   RealVector mesh, tspan;
   int numNodes, numTimes;
   int numDepVars, numODE, numFEMEqns;
+  int numNonZerosJacMax;
   static const int numElemNodes = 2;
   std::vector<bool> dirConsFlagsLeft, dirConsFlagsRight;
   RealMatrix y0;
   PDE1dDefn::BC bc;
   PDE1dDefn::PDE coeffs;
   PDE1dDefn::PDEVec coeffsAllPts; // FIXME should have only one of coeffs or this one
+  RealVector Cxd, F, S;
   // temporary arrays for vectorized mode
   RealVector xPts;
   RealMatrix uPts, duPts;
-  FiniteDiffJacobian *fDiffJac;
+  std::unique_ptr<FiniteDiffJacobian > finiteDiffJacobian;
   void *ida;
   std::unique_ptr<ShapeFunction> sf;
 };

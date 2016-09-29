@@ -23,6 +23,7 @@ public:
     relTol(relTol), absTol(absTol) {
     vectorizedFuncs = stats = false;
     maxSteps = 10000;
+    ICMethod = 0;
   }
   double getRelTol() const { return relTol;  }
   double getAbsTol() const { return absTol;  }
@@ -34,11 +35,14 @@ public:
   void setMaxSteps(int maxSteps) { this->maxSteps = maxSteps;  }
   bool printStats() const { return stats; }
   void setPrintStats(bool sts) { stats = sts; }
+  int getICMethod() const { return ICMethod; }
+  void setICMethod(int meth) { ICMethod = meth;  }
 private:
   double relTol, absTol;
   bool vectorizedFuncs;
   int maxSteps;
   bool stats;
+  int ICMethod;
 };
 
 #endif

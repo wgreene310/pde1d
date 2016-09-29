@@ -38,8 +38,11 @@ public:
   ~FiniteDiffJacobian();
   void calcJacobian(double tres, double alpha, double beta,
     N_Vector uu, N_Vector up, N_Vector r,
-    IDAResFn rf, void *userData, SparseMat &Jac);
+    IDAResFn rf, void *userData, SparseMat &Jac, bool useCD=false);
   void calcJacobian(double tres, double alpha, double beta,
+    N_Vector uu, N_Vector up, N_Vector r,
+    IDAResFn rf, void *userData, SlsMat Jac);
+  void calcJacobianCD(double tres, double alpha, double beta,
     N_Vector uu, N_Vector up, N_Vector r,
     IDAResFn rf, void *userData, SlsMat Jac);
 private:

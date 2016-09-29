@@ -29,23 +29,22 @@ struct _SundialsVector_ {
 };
 
 
-class SunVector : public _SundialsVector_ ,
+class SunVector : private _SundialsVector_ ,
   public Eigen::Map<Eigen::VectorXd>
 {
 public:
   explicit SunVector(size_t n);
   explicit SunVector(N_Vector nv);
+  SunVector(const SunVector &rhs);
   SunVector &operator=(const SunVector &rhs) {
     if (this == &rhs) return *this;
     assert(rows() == rhs.rows());
-    assert(cols() == 1 && rhs.cols() == 1);
     Eigen::Map<Eigen::VectorXd>::operator=(rhs);
     return *this;
   }
-  template<class T>
-  SunVector &operator=(const T &rhs) {
+  SunVector &operator=(const Eigen::Ref<const Eigen::VectorXd> &rhs)
+  {
     assert(rows() == rhs.rows());
-    assert(cols() == 1 && rhs.cols() == 1);
     Eigen::Map<Eigen::VectorXd>::operator=(rhs);
     return *this;
   }
