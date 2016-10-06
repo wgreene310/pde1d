@@ -32,6 +32,7 @@ class FiniteDiffJacobian;
 class ShapeFunction;
 class SunVector;
 struct _SlsMat;
+class PDEMeshMapper;
 
 class PDE1dImpl {
 public:
@@ -68,11 +69,11 @@ private:
   GausLegendreIntRule *intRule;
   RealVector mesh, tspan;
   int numNodes, numTimes;
-  int numDepVars, numODE, numFEMEqns;
+  int numDepVars, numODE, numFEEqns, totalNumEqns;
   int numNonZerosJacMax;
   static const int numElemNodes = 2;
   std::vector<bool> dirConsFlagsLeft, dirConsFlagsRight;
-  RealMatrix y0;
+  RealVector y0;
   PDE1dDefn::BC bc;
   PDE1dDefn::PDE coeffs;
   PDE1dDefn::PDEVec coeffsAllPts; // FIXME should have only one of coeffs or this one
@@ -83,6 +84,9 @@ private:
   std::unique_ptr<FiniteDiffJacobian > finiteDiffJacobian;
   void *ida;
   std::unique_ptr<ShapeFunction> sf;
+  std::unique_ptr<PDEMeshMapper> meshMapper;
+  RealVector v, vDot, odeF;
+  RealMatrix odeU, odeDuDx;
 };
 
 #define FUNC_NAME "pde1d"

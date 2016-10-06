@@ -21,6 +21,7 @@
 
 #include <mex.h>
 
+#include "MexInterface.h"
 #include "PDE1dMexInt.h"
 #include "PDE1dImpl.h"
 #include "PDE1dOptions.h"
@@ -165,20 +166,27 @@ void mexFunction(int nlhs, mxArray*
   if (optsArg > 0)
     opts = getOptions(prhs[optsArg]);
 
-  if(nlhs > 1)
-    mexErrMsgIdAndTxt("pde1d:nlhs", "pde1d returns only a single matrix.");
-
-  plhs[0] = 0;
-
+  std::fill_n(plhs, nlhs, nullptr);
+ 
   PDESolution pdeSol;
-  int numPde = 0, numPts = 0;
+  int numPde = 0, numPts = 0, numOde = 0;
   try {
     PDE1dMexInt pde(m, prhs[1], prhs[2], prhs[3],
       prhs[4], prhs[5]);
-    if (hasODE)
+    if (hasODE) {
       pde.setODEDefn(prhs[6], prhs[7], prhs[8]);
-    numPde = pde.getNumEquations();
+      if (nlhs > 2)
+        mexErrMsgIdAndTxt("pde1d:nlhs",
+        "pde1d returns only a two matrices when there are included ODEs.");
+    }
+    else {
+      if (nlhs > 1)
+        mexErrMsgIdAndTxt("pde1d:nlhs", 
+        "pde1d returns only a single matrix when there are no ODEs.");
+    }
+    numPde = pde.getNumPDE();
     numPts = pde.numNodes();
+    numOde = pde.getNumODE();
     PDE1dImpl pdeImpl(pde, opts);
     int err = pdeImpl.solveTransient(pdeSol);
     if (err)
@@ -224,5 +232,8 @@ void mexFunction(int nlhs, mxArray*
   }
 
   plhs[0] = sol;
+  // odes are included
+  if (nlhs == 2)
+    plhs[1] = MexInterface::toMxArray(pdeSol.uOde);
 
 }

@@ -29,24 +29,33 @@ public:
     const mxArray *bcfun,
     const mxArray *xmesh, const mxArray *tspan);
   ~PDE1dMexInt();
-  virtual int getNumEquations();
-  virtual int getCoordSystem() {
+  //virtual int getNumEquations();
+  virtual int getCoordSystem() const {
     return mCoord;
   }
   int numNodes() { return mesh.size();  }
   virtual void evalIC(double x, RealVector &ic);
+  virtual void evalODEIC(RealVector &ic);
   virtual void evalBC(double xl, const RealVector &ul,
-    double xr, const RealVector &ur, double t, BC &bc);
+    double xr, const RealVector &ur, double t, 
+    const RealVector &v, const RealVector &vDot, BC &bc);
   virtual void evalPDE(double x, double t,
-    const RealVector &u, const RealVector &DuDx, PDE &pde);
+    const RealVector &u, const RealVector &DuDx, 
+    const RealVector &v, const RealVector &vDot, PDE &pde);
   virtual bool hasVectorPDEEval() const { return true; }
-  virtual void evalPDE(RealVector x, double t,
-    const RealMatrix &u, const RealMatrix &DuDx, PDEVec &pde);
+  virtual void evalPDE(const RealVector &x, double t,
+    const RealMatrix &u, const RealMatrix &DuDx, 
+    const RealVector &v, const RealVector &vDot, PDEVec &pde);
   virtual RealVector getMesh();
+  virtual const RealVector &getODEMesh();
   virtual RealVector getTimeSpan();
   void setODEDefn(const mxArray *odeFun, const mxArray *icFun,
     const mxArray *odeMesh);
-  virtual bool hasODE() const { return numODE>0; }
+  virtual int getNumODE() const { return numODE; }
+  virtual int getNumPDE() const { return numPDE; }
+  virtual void evalODE(double t, const RealVector &v,
+    const RealVector &vdot,
+    const RealVector &u, const RealVector &DuDx, RealVector &f);
 private:
   static void setScalar(double x, mxArray *a) {
     double *p = mxGetPr(a); p[0] = x;
@@ -75,13 +84,15 @@ private:
   void callMatlab(const mxArray *inArgs[], int nargin,
     RealMatrix *outArgs[], int nargout);
   static std::string getFuncNameFromHandle(const mxArray *fh);
+  static void destroy(mxArray *a);
   int mCoord, numPDE, numODE;
-  RealVector mesh, tSpan;
+  RealVector mesh, tSpan, odeMeshVec;
   const mxArray *pdefun, *icfun, *bcfun, *xmesh, *tspan;
   const mxArray *odefun, *odeIcFun, *odeMesh;
 
   mxArray *mxX1, *mxX2, *mxT; // scalar x and t
-  mxArray *mxVec1, *mxVec2;
+  mxArray *mxVec1, *mxVec2; // input to pde function
+  mxArray *mxV, *mxVDot, *mxOdeU, *mxOdeDuDx;
   static const int maxMatlabRetArgs = 4;
   mxArray *matOutArgs[maxMatlabRetArgs];
 };

@@ -1,4 +1,5 @@
 OCT=/cygdrive/c/Octave/Octave-4.0.0/bin
+#OCT=/cygdrive/c/Octave/Octave-4.2.0-rc2/bin
 export PATH=$OCT:$PATH
 #which mkoctfile
 #echo $PATH

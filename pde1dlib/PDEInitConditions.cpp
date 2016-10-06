@@ -55,11 +55,11 @@ PDEInitConditions::ICPair PDEInitConditions::init() {
 void PDEInitConditions::calcShampineAlgo(double t0,
   SunVector &yNew, SunVector &ypNew)
 {
-  const int numFEMEqns = u0.rows();
-  SparseMat dfDy(numFEMEqns, numFEMEqns), dfDyp(numFEMEqns, numFEMEqns);
-  const int maxIter = 10;
-  RealVector dy(numFEMEqns), dyp(numFEMEqns), dypP(numFEMEqns);
-  SunVector res(numFEMEqns);
+  const int numEqns = u0.rows();
+  SparseMat dfDy(numEqns, numEqns), dfDyp(numEqns, numEqns);
+  const int maxIter = 3;
+  RealVector dy(numEqns), dyp(numEqns), dypP(numEqns);
+  SunVector res(numEqns);
   yNew = u0;
   ypNew = up0;
   int it = 0;
@@ -68,13 +68,15 @@ void PDEInitConditions::calcShampineAlgo(double t0,
   while (it++ < maxIter) {
     pdeImpl.calcRHSODE(t0, yNew, ypNew, res);
 #if 1
-    double resRms = sqrt(res.dot(res)) / (double)numFEMEqns;
-    printf("iter = %d, resRms=%12.3e\n", it, resRms);
+    // rms tolerance
+    double resRms = sqrt(res.dot(res)) / (double)numEqns;
+    //printf("iter = %d, resRms=%12.3e\n", it, resRms);
     if (resRms < pdeImpl.getOptions().getAbsTol()) {
       converged = true;
       break;
     }
 #else
+    // max tolerance
     auto absRes = res.array().abs();
     maxRes = absRes.maxCoeff();
     printf("iter = %d, maxRes=%12.3e\n", it, maxRes);
@@ -100,9 +102,11 @@ void PDEInitConditions::calcShampineAlgo(double t0,
     RealVector d = -(qr.matrixQ().transpose()*res);
     RealMatrix S = qr.matrixQ().transpose()*dfDy.toDense();
     int rnk = qr.rank();
-    int numAlgVars = numFEMEqns - rnk;
-    printf("numFEMEqns=%d, rnk=%d, numAlgVars=%d\n",
-      numFEMEqns, rnk, numAlgVars);
+    int numAlgVars = numEqns - rnk;
+#if 0
+    printf("numEqns=%d, rnk=%d, numAlgVars=%d\n",
+      numEqns, rnk, numAlgVars);
+#endif
 #if 0
     Eigen::VectorXd rDiag = qr.matrixR().diagonal();
     cout << "Rdiag=" << rDiag.transpose() << endl;
@@ -184,7 +188,7 @@ void PDEInitConditions::update()
   }
 }
 
-bool PDEInitConditions::compareInitConditions()
+void PDEInitConditions::compareInitConditions()
 {
   double atol = pdeImpl.getOptions().getAbsTol();
   double maxDiff = (u0 - *u0C).cwiseAbs().maxCoeff();
@@ -193,5 +197,11 @@ bool PDEInitConditions::compareInitConditions()
     "User-defined initial conditions were changed "
     "to create a consistent solution to the equations at "
     "the initial time.\n");
+}
+
+void PDEInitConditions::print() const
+{
+  cout << "Initial y=" << u0C->transpose() << endl;
+  cout << "Initial y_dot=" << up0C->transpose() << endl;
 }
 

@@ -23,13 +23,14 @@ public:
   const SunVector &getU0() {
     return *u0C.get();
   }
+  void print() const;
 private:
   void calcShampineAlgo(double t0,
     SunVector &yNew, SunVector &ypNew);
   void calcSundialsAlgo(double tf,
     SunVector &yNew, SunVector &ypNew);
   void icFailErr();
-  bool compareInitConditions();
+  void compareInitConditions();
   int icMeth;
   void *idaMem;
   PDE1dImpl &pdeImpl;

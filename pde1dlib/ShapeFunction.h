@@ -20,6 +20,7 @@ class ShapeFunction
 public:
   virtual void N(double r, double *vals) const =0;
   virtual void dNdr(double r, double *vals) const  = 0;
+  virtual int numNodes() const = 0;
 };
 
 class ShapeFunction2 : public ShapeFunction
@@ -27,6 +28,7 @@ class ShapeFunction2 : public ShapeFunction
 public:
   virtual void N(double r, double *vals) const;
   virtual void dNdr(double r, double *vals) const;
+  virtual int numNodes() const { return 2; }
 };
 
 class ShapeFunction3 : public ShapeFunction
@@ -34,5 +36,6 @@ class ShapeFunction3 : public ShapeFunction
 public:
   virtual void N(double r, double *vals) const;
   virtual void dNdr(double r, double *vals) const;
+  virtual int numNodes() const { return 3; }
 };
 

@@ -22,6 +22,7 @@ using std::endl;
 #include <boost/timer.hpp>
 
 #include "PDE1dMexInt.h"
+#include "MexInterface.h"
 
 namespace {
 
@@ -68,6 +69,10 @@ PDE1dMexInt::PDE1dMexInt(int m, const mxArray *pdefun, const mxArray *icfun,
   odeIcFun = 0;
   odeMesh = 0;
   numODE = 0;
+  mxV = 0;
+  mxVDot = 0;
+  mxOdeU = 0;
+  mxOdeDuDx = 0;
 }
 
 
@@ -78,6 +83,17 @@ PDE1dMexInt::~PDE1dMexInt()
   mxDestroyArray(mxT);
   mxDestroyArray(mxVec1);
   mxDestroyArray(mxVec2);
+  destroy(mxV);
+  destroy(mxVDot);
+  destroy(mxOdeU);
+  destroy(mxOdeDuDx);
+}
+
+void PDE1dMexInt::destroy(mxArray *a)
+{
+  // not sure if mex does this test?
+  if (a)
+    mxDestroyArray(a);
 }
 
 void PDE1dMexInt::setODEDefn(const mxArray *odeFun, const mxArray *icFun,
@@ -87,11 +103,12 @@ void PDE1dMexInt::setODEDefn(const mxArray *odeFun, const mxArray *icFun,
   odeIcFun = icFun;
   odeMesh = odemesh;
   setNumOde();
-}
-
-int PDE1dMexInt::getNumEquations()
-{
-  return numPDE+numODE;
+  int numXi = mxGetNumberOfElements(odeMesh);
+  mxV = mxCreateDoubleMatrix(numODE, 1, mxREAL);
+  mxVDot = mxCreateDoubleMatrix(numODE, 1, mxREAL);
+  mxOdeU = mxCreateDoubleMatrix(numXi, 1, mxREAL);
+  mxOdeDuDx = mxCreateDoubleMatrix(numXi, 1, mxREAL);
+  odeMeshVec = MexInterface::fromMxArrayVec(odeMesh);
 }
 
 void PDE1dMexInt::evalIC(double x, RealVector &ic)
@@ -103,51 +120,105 @@ void PDE1dMexInt::evalIC(double x, RealVector &ic)
   callMatlab(funcInp, nargin, outArgs, nargout);
 }
 
+void PDE1dMexInt::evalODEIC(RealVector &ic)
+{
+  const int nargout = 1, nargin = 1;
+  const mxArray *funcInp[] = { odeIcFun };
+  RealVector *outArgs[] = { &ic };
+  callMatlab(funcInp, nargin, outArgs, nargout);
+}
+
 void PDE1dMexInt::evalBC(double xl, const RealVector &ul,
-  double xr, const RealVector &ur, double t, BC &bc) {
+  double xr, const RealVector &ur, double t, 
+  const RealVector &v, const RealVector &vDot, BC &bc) {
   setScalar(xl, mxX1);
   setVector(ul, mxVec1);
   setScalar(xr, mxX2);
   setVector(ur, mxVec2);
   setScalar(t, mxT);
-  const int nargout = 4, nargin = 6;
-  const mxArray *funcInp[] = { bcfun, mxX1, mxVec1, mxX2, mxVec2, mxT };
+  const int nargout = 4;
+  int nargin = 6;
+  if (numODE) {
+    nargin = 8;
+    setVector(v, mxV);
+    setVector(vDot, mxVDot);
+  }
+  const mxArray *funcInp[] = { bcfun, mxX1, mxVec1, mxX2, mxVec2, mxT,
+    mxV, mxVDot };
   RealVector *outArgs[] = { &bc.pl, &bc.ql, &bc.pr, &bc.qr };
   callMatlab(funcInp, nargin, outArgs, nargout);
 }
 
 void PDE1dMexInt::evalPDE(double x, double t,
-  const RealVector &u, const RealVector &DuDx, PDE &pde) {
+  const RealVector &u, const RealVector &DuDx, 
+  const RealVector &v, const RealVector &vDot, PDE &pde) {
   // Evaluate pde coefficients one point at a time
   // [c,f,s] = heatpde(x,t,u,DuDx)
   setScalar(x, mxX1);
   setScalar(t, mxT);
   setVector(u, mxVec1);
   setVector(DuDx, mxVec2);
-  const int nargout = 3, nargin = 5;
-  const mxArray *funcInp[] = { pdefun, mxX1, mxT, mxVec1, mxVec2 };
+  const int nargout = 3;
+  int nargin = 5;
+  if (numODE) {
+    nargin = 7;
+    setVector(v, mxV);
+    setVector(vDot, mxVDot);
+  }
+  const mxArray *funcInp[] = { pdefun, mxX1, mxT, mxVec1, mxVec2,
+    mxV, mxVDot };
   RealVector *outArgs[] = { &pde.c, &pde.f, &pde.s };
   callMatlab(funcInp, nargin, outArgs, nargout);
 }
 
-void PDE1dMexInt::evalPDE(RealVector x, double t,
-  const RealMatrix &u, const RealMatrix &DuDx, PDEVec &pde)
+void PDE1dMexInt::evalPDE(const RealVector &x, double t,
+  const RealMatrix &u, const RealMatrix &DuDx, 
+  const RealVector &v, const RealVector &vDot, PDEVec &pde)
 {
   // Evaluate pde coefficients at all x-locations
   // [c,f,s] = heatpde(x,t,u,DuDx)
-  setVector(x, mxX1);
+  setMatrix(x.transpose(), mxX1);
   setScalar(t, mxT);
   setMatrix(u, mxVec1);
   setMatrix(DuDx, mxVec2);
-  const int nargout = 3, nargin = 5;
-  const mxArray *funcInp[] = { pdefun, mxX1, mxT, mxVec1, mxVec2 };
+  const int nargout = 3;
+  int nargin = 5;
+  if (numODE) {
+    nargin = 7;
+    setVector(v, mxV);
+    setVector(vDot, mxVDot);
+  }
+  const mxArray *funcInp[] = { pdefun, mxX1, mxT, mxVec1, mxVec2,
+  mxV, mxVDot};
   RealMatrix *outArgs[] = { &pde.c, &pde.f, &pde.s };
   callMatlab(funcInp, nargin, outArgs, nargout);
 }
 
+void PDE1dMexInt::evalODE(double t, const RealVector &v,
+  const RealVector &vdot, const RealVector &u, const RealVector &DuDx,
+   RealVector &f)
+{
+  // odeFunc(t,v,vdot,x,u,DuDx)
+  setScalar(t, mxT);
+  setVector(v, mxV);
+  setVector(vdot, mxVDot);
+  setVector(u, mxOdeU);
+  setVector(DuDx, mxOdeDuDx);
+  const int nargout = 1;
+  const int nargin = 7;
+  const mxArray *funcInp[] = { odefun, mxT, mxV, mxVDot, odeMesh,
+    mxOdeU, mxOdeDuDx };
+  RealVector *outArgs[] = { &f };
+  callMatlab(funcInp, nargin, outArgs, nargout);
+}
 
 RealVector PDE1dMexInt::getMesh() {
   return mesh;
+}
+
+const RealVector &PDE1dMexInt::getODEMesh()
+{
+  return odeMeshVec;
 }
 
 RealVector PDE1dMexInt::getTimeSpan() { return tSpan; }
@@ -239,7 +310,7 @@ void PDE1dMexInt::setNumOde()
 {
   mxArray *initCond = 0;
   const mxArray *funcInp[] = { odeIcFun};
-  int err = mexCallMATLAB(1, &initCond, 2,
+  int err = mexCallMATLAB(1, &initCond, 1,
     const_cast<mxArray**>(funcInp), "feval");
   if (err)
     mexErrMsgIdAndTxt("pde1d:mexCallMATLAB",
@@ -247,7 +318,7 @@ void PDE1dMexInt::setNumOde()
   numODE = mxGetNumberOfElements(initCond);
   if (initCond)
     mxDestroyArray(initCond);
-  printf("numODE=%d\n", numODE);
+  //printf("numODE=%d\n", numODE);
 }
 
 std::string PDE1dMexInt::getFuncNameFromHandle(const mxArray *fh)

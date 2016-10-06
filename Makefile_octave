@@ -2,14 +2,16 @@ CC=mkoctfile -mex
 CXX=mkoctfile -mex
 
 ifeq ($(findstring Windows, $(OS)),Windows)
+  #REL=4.2.0-rc2
+	REL=4.0.0
 	EIGEN=$(HOME)/src/Eigen/eigen-3.2.6
 	BOOST_ROOT=C:/boost/boost_1_57_0
-	OCTAVE_ROOT=c:/Octave/Octave-4.0.0
-	OCTAVE_INC=$(OCTAVE_ROOT)/include/octave-4.0.0/octave
+	OCTAVE_ROOT=c:/Octave/Octave-$(REL)
+	OCTAVE_INC=$(OCTAVE_ROOT)/include/octave-$(REL)/octave
 	SUNDIALS_ROOT=$(HOME)/src/sundials-2.6.2/
 	SUNDIALS_INC=-I$(SUNDIALS_ROOT)/include -I./ -Ic:/wgreene/tests/c++/sundialsExamples/pde1dmex_mingw
 	SUNDIALS_LDIR=$(SUNDIALS_ROOT)
-	LIB_OCT=-L$(OCTAVE_ROOT)/lib/octave/4.0.0 -loctave.dll -loctinterp.dll
+	LIB_OCT=-L$(OCTAVE_ROOT)/lib/octave/$(REL) -loctave.dll -loctinterp.dll
 	SUITESPARSE_LIB_DIR = $(HOME)/src/sparse_solvers/SuiteSparse/libs/mingw32
 	SUITESPARSE_LIBS=-L$(SUITESPARSE_LIB_DIR) \
 	                -lklu -lamd -lcolamd -lbtf -lsuitesparseconfig
@@ -19,9 +21,12 @@ else
 		  EIGEN=$(HOME)/src/Eigen/eigen-3.2.2
       OCTAVE_ROOT=/opt/octave-4.0.0
       OCTAVE_INC=$(OCTAVE_ROOT)/include/octave-4.0.2/octave
-      SUNDIALS_ROOT=/usr/local/include/sundials
-      SUNDIALS_LDIR=/usr/local/lib
-      SUNDIALS_INC=-I$(SUNDIALS_ROOT)/include -I./ 
+      #SUNDIALS_ROOT=/usr/local/include/sundials
+      #SUNDIALS_LDIR=/usr/local/lib
+      #SUNDIALS_INC=-I$(SUNDIALS_ROOT)/include -I./ 
+			SUNDIALS_ROOT=$(HOME)/sundials
+      SUNDIALS_LDIR=$(SUNDIALS_ROOT)/lib
+      SUNDIALS_INC=-I$(SUNDIALS_ROOT)/include
 			BOOST_ROOT=/usr/local
 	    SUITESPARSE_LIBS= -L/usr/lib/i386-linux-gnu -l:libklu.a -l:libamd.a \
 			                  -l:libcolamd.a -l:libbtf.a -lsuitesparseconfig
@@ -50,7 +55,7 @@ LIBS=$(SUNDIALS_LDIR)/libsundials_ida.a $(SUNDIALS_LDIR)/libsundials_nvecserial.
 
 OBJS=pde1dmex.o PDE1dMexInt.o PDE1dImpl.o PDE1dDefn.o PDEInitConditions.o \
      GausLegendreIntRule.o SunVector.o FDJacobian.o FiniteDiffJacobian.o \
-		 ShapeFunction.o
+		 ShapeFunction.o MexInterface.o PDEMeshMapper.o
 
 pde1d.mex: $(OBJS)
 	mkoctfile -mex  $(OBJS) $(LIBS) -o pde1d.mex
