@@ -1,4 +1,6 @@
-OCT=/cygdrive/c/Octave/Octave-4.0.0/bin
+export REL=4.0.0
+#export REL=4.2.0-rc2
+OCT=/cygdrive/c/Octave/Octave-$REL/bin
 #OCT=/cygdrive/c/Octave/Octave-4.2.0-rc2/bin
 export PATH=$OCT:$PATH
 #which mkoctfile

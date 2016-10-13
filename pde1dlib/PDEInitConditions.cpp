@@ -21,6 +21,7 @@ using std::endl;
 #include "PDE1dOptions.h"
 #include "PDE1dException.h"
 #include "PDE1dWarningMsg.h"
+#include "util.h"
 
 
 PDEInitConditions::PDEInitConditions(void *idaMem, PDE1dImpl &pdeImpl,
@@ -57,7 +58,7 @@ void PDEInitConditions::calcShampineAlgo(double t0,
 {
   const int numEqns = u0.rows();
   SparseMat dfDy(numEqns, numEqns), dfDyp(numEqns, numEqns);
-  const int maxIter = 3;
+  const int maxIter = 10;
   RealVector dy(numEqns), dyp(numEqns), dypP(numEqns);
   SunVector res(numEqns);
   yNew = u0;
@@ -65,12 +66,18 @@ void PDEInitConditions::calcShampineAlgo(double t0,
   int it = 0;
   bool converged = false;
   double maxRes = 1;
+  int diag = pdeImpl.getOptions().getICDiagnostics();
+  if (diag > 1) {
+    cout << "u0=" << yNew.transpose() << endl;
+    cout << "up0=" << ypNew.transpose() << endl;
+  }
   while (it++ < maxIter) {
     pdeImpl.calcRHSODE(t0, yNew, ypNew, res);
 #if 1
     // rms tolerance
     double resRms = sqrt(res.dot(res)) / (double)numEqns;
-    //printf("iter = %d, resRms=%12.3e\n", it, resRms);
+    if (diag)
+      printf("IC: iter = %d, resRms=%12.3e\n", it, resRms);
     if (resRms < pdeImpl.getOptions().getAbsTol()) {
       converged = true;
       break;
@@ -85,6 +92,8 @@ void PDEInitConditions::calcShampineAlgo(double t0,
       break;
     }
 #endif
+    if (diag > 1)
+      cout << "res=" << res.transpose() << endl;
     pdeImpl.calcJacobian(t0, 1, 0, yNew, ypNew, res, dfDy);
     //cout << "dfDy\n" << dfDy.toDense() << endl;
     pdeImpl.calcJacobian(t0, 0, 1, yNew, ypNew, res, dfDyp);
@@ -103,10 +112,10 @@ void PDEInitConditions::calcShampineAlgo(double t0,
     RealMatrix S = qr.matrixQ().transpose()*dfDy.toDense();
     int rnk = qr.rank();
     int numAlgVars = numEqns - rnk;
-#if 0
-    printf("numEqns=%d, rnk=%d, numAlgVars=%d\n",
+    if(diag)
+      printf("IC: numEqns=%d, rnk=%d, numAlgVars=%d\n",
       numEqns, rnk, numAlgVars);
-#endif
+
 #if 0
     Eigen::VectorXd rDiag = qr.matrixR().diagonal();
     cout << "Rdiag=" << rDiag.transpose() << endl;
@@ -119,13 +128,15 @@ void PDEInitConditions::calcShampineAlgo(double t0,
       printf("Error detected in computation of consistent initial conditions.\n");
     }
     dy = qrS.solve(d.bottomRows(numAlgVars));
-    //cout << "dy=" << dy.transpose() << endl;
+    if (diag>1)
+      cout << "dy=" << dy.transpose() << endl;
     auto R11 = qr.matrixR().topLeftCorner(rnk, rnk).triangularView<Eigen::Upper>();
     RealVector w1p = R11.solve(d.topRows(rnk) - S.topRows(rnk)*dy);
     dypP.setZero();
     dypP.topRows(rnk) = w1p;
     dyp = qr.colsPermutation()*dypP;
-    //cout << "dyp=" << dyp.transpose() << endl;
+    if (diag>1)
+      cout << "dyp=" << dyp.transpose() << endl;
 
     yNew += dy;
     ypNew += dyp;
@@ -134,10 +145,6 @@ void PDEInitConditions::calcShampineAlgo(double t0,
   if (!converged) {
     printf("Unable to obtain a consistent set of initial conditions.\n"
       "Maximum error in the residual is %12.3e.\n", maxRes);
-#if 0
-    cout << "yNew=" << yNew.transpose() << endl;
-    cout << "ypNew=" << ypNew.transpose() << endl;
-#endif
   }
 }
 
@@ -185,6 +192,14 @@ void PDEInitConditions::update()
     if (ier < 0)
       throw PDE1dException("pde1d:get_consistent_ic",
       "Unable to retrieve consistent initial conditions from IDA.");
+  }
+
+  int diag = pdeImpl.getOptions().getICDiagnostics();
+  if (diag) {
+    //cout << "IC: yNew=" << yNew.transpose() << endl;
+    //cout << "IC: ypNew=" << ypNew.transpose() << endl;
+    ::print(u0C->getNV(), "yNew");
+    ::print(up0C->getNV(), "ypNew");
   }
 }
 

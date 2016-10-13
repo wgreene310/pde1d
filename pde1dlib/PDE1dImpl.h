@@ -56,7 +56,9 @@ private:
   void calcGlobalEqns(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
   template<class T, class TR>
   void calcGlobalEqnsVec(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
-  void setAlgVarFlags(N_Vector id);
+  void setAlgVarFlags(SunVector &y0p, SunVector &id);
+  RealMatrix calcODEJacobian(double time, const RealMatrix &yFE, 
+    RealVector &v, RealVector &vdot);
   void checkIncreasing(const RealVector &v, int argNum, const char *argName);
   void checkCoeffs(const PDE1dDefn::PDE &coeffs);
   void printStats();

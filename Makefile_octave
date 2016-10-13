@@ -1,9 +1,12 @@
 CC=mkoctfile -mex
 CXX=mkoctfile -mex
 
-ifeq ($(findstring Windows, $(OS)),Windows)
+ifndef REL
   #REL=4.2.0-rc2
 	REL=4.0.0
+endif
+
+ifeq ($(findstring Windows, $(OS)),Windows)
 	EIGEN=$(HOME)/src/Eigen/eigen-3.2.6
 	BOOST_ROOT=C:/boost/boost_1_57_0
 	OCTAVE_ROOT=c:/Octave/Octave-$(REL)
@@ -68,5 +71,5 @@ distclean: clean
 	
 test:
 	#echo $(findstring Linux, $(OS))
-	echo $(OS)
+	echo $(REL)
 

@@ -37,7 +37,7 @@ public:
   };
   virtual void evalODE(double t, const RealVector &v, 
     const RealVector &vdot, 
-    const RealVector &u, const RealVector &DuDx, RealVector &f) = 0;
+    const RealMatrix &u, const RealMatrix &DuDx, RealVector &f) = 0;
   virtual const RealVector &getODEMesh() = 0;
 };
 

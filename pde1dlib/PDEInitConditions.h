@@ -23,6 +23,9 @@ public:
   const SunVector &getU0() {
     return *u0C.get();
   }
+  const SunVector &getUp0() {
+    return *up0C.get();
+  }
   void print() const;
 private:
   void calcShampineAlgo(double t0,

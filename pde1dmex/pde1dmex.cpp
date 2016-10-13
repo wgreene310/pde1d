@@ -90,6 +90,10 @@ namespace {
         int icMethod = (int) mxGetScalar(val);
         pdeOpts.setICMethod(icMethod);
       }
+      else if (boost::iequals(ni, "icdiagnostics")) {
+        int icDiag = (int) mxGetScalar(val);
+        pdeOpts.setICDiagnostics(icDiag);
+      }
       else {
         char msg[1024];
         sprintf(msg, "The options argument contains the field \"%s\".\n"
@@ -117,6 +121,7 @@ void PDE1dWarningMsg(const char *id, const char *msg) {
 void mexFunction(int nlhs, mxArray*
   plhs[], int nrhs, const mxArray *prhs[])
 {
+  //printf("nlhs=%d, nrhs=%d\n", nlhs, nrhs); return;
   int optsArg = -1;
   if (nrhs == 7)
     optsArg = 6;

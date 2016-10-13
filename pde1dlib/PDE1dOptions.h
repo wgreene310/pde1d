@@ -24,6 +24,7 @@ public:
     vectorizedFuncs = stats = false;
     maxSteps = 10000;
     ICMethod = 0;
+    ICDiagnostics = 0;
   }
   double getRelTol() const { return relTol;  }
   double getAbsTol() const { return absTol;  }
@@ -37,12 +38,15 @@ public:
   void setPrintStats(bool sts) { stats = sts; }
   int getICMethod() const { return ICMethod; }
   void setICMethod(int meth) { ICMethod = meth;  }
+  int getICDiagnostics() const { return ICDiagnostics;  }
+  void setICDiagnostics(int diag) { ICDiagnostics = diag; }
 private:
   double relTol, absTol;
   bool vectorizedFuncs;
   int maxSteps;
   bool stats;
   int ICMethod;
+  int ICDiagnostics;
 };
 
 #endif

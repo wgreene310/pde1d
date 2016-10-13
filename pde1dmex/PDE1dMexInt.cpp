@@ -195,15 +195,15 @@ void PDE1dMexInt::evalPDE(const RealVector &x, double t,
 }
 
 void PDE1dMexInt::evalODE(double t, const RealVector &v,
-  const RealVector &vdot, const RealVector &u, const RealVector &DuDx,
+  const RealVector &vdot, const RealMatrix &u, const RealMatrix &DuDx,
    RealVector &f)
 {
   // odeFunc(t,v,vdot,x,u,DuDx)
   setScalar(t, mxT);
   setVector(v, mxV);
   setVector(vdot, mxVDot);
-  setVector(u, mxOdeU);
-  setVector(DuDx, mxOdeDuDx);
+  setMatrix(u, mxOdeU);
+  setMatrix(DuDx, mxOdeDuDx);
   const int nargout = 1;
   const int nargin = 7;
   const mxArray *funcInp[] = { odefun, mxT, mxV, mxVDot, odeMesh,

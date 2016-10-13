@@ -55,7 +55,7 @@ public:
   virtual int getNumPDE() const { return numPDE; }
   virtual void evalODE(double t, const RealVector &v,
     const RealVector &vdot,
-    const RealVector &u, const RealVector &DuDx, RealVector &f);
+    const RealMatrix &u, const RealMatrix &DuDx, RealVector &f);
 private:
   static void setScalar(double x, mxArray *a) {
     double *p = mxGetPr(a); p[0] = x;

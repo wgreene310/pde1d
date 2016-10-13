@@ -19,6 +19,8 @@
 using std::cout;
 using std::endl;
 
+#include <Eigen/LU>
+
 #define DAE_Y_INIT 0
 
 #define SUN_USING_SPARSE 1
@@ -38,12 +40,11 @@ using std::endl;
 #include "PDE1dException.h"
 #include "PDE1dWarningMsg.h"
 #include "SunVector.h"
-#if SUN_USING_SPARSE
 #include "FiniteDiffJacobian.h"
-#endif
 #include "ShapeFunction.h"
 #include "PDEInitConditions.h"
 #include "PDEMeshMapper.h"
+#include <util.h>
 
 #define DEBUG_MATS 0
 
@@ -112,7 +113,6 @@ pde(pde), options(options)
   F.resize(numFEEqns);
   S.resize(numFEEqns);
 
-#if SUN_USING_SPARSE
   //printf("Using sparse solver.\n");
   SparseMat P;
   calcJacPattern(P);
@@ -120,7 +120,7 @@ pde(pde), options(options)
   //cout << "P\n" << P << endl;
   finiteDiffJacobian = 
     std::unique_ptr<FiniteDiffJacobian>(new FiniteDiffJacobian(P));
-#endif
+
 }
 
 
@@ -131,22 +131,6 @@ PDE1dImpl::~PDE1dImpl()
 }
 
 namespace {
-
-  void print(N_Vector v, const char *title) {
-    double *d = NV_DATA_S(v);
-    int len = NV_LENGTH_S(v);
-    int count = 0;
-    printf("Vector: %s(%d)\n", title, len);
-    for (int i = 0; i < len; i++) {
-      printf(" %14.9e", d[i]);
-      if (++count == 6) {
-        printf("\n");
-        count = 0;
-      }
-    }
-    if (count)
-      printf("\n");
-  }
 
   int resFunc(realtype tres, N_Vector uu, N_Vector up, N_Vector resval,
     void *user_data) {
@@ -235,7 +219,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   double initResNorm = resVec.dot(resVec);
   printf("initResNorm=%12.3e\n", sqrt(initResNorm));
 #endif
-  setAlgVarFlags(id.getNV());
+  setAlgVarFlags(up, id);
 
   /* Call IDACreate and IDAMalloc to initialize solution */
   ida = IDACreate();
@@ -243,9 +227,13 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
 
   int ier = IDASetUserData(ida, this);
   check_flag(&ier, "IDASetUserData", 1);
-#if ! DAE_Y_INIT
   ier = IDASetId(ida, id.getNV());
   check_flag(&ier, "IDASetId", 1);
+#if 1
+  if (numODE) {
+    ier = IDASetSuppressAlg(ida, true);
+    check_flag(&ier, "IDASetSuppressAlg", 1);
+  }
 #endif
   double t0 = tspan(0), tf = tspan(numTimes-1);
   PDEInitConditions initCond(ida, *this, uu, up);
@@ -273,11 +261,17 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   ier = IDADense(ida, neqImpl);
   check_flag(&ier, "IDADense", 1);
 #endif
-  //testICCalc(uu, up, res, id, tf);
 
   // second stage of initial conditions calculation
   initCond.update();
   //initCond.print();
+
+#if 0
+  // testing only
+  SunVector u0Tmp = initCond.getU0();
+  SunVector up0Tmp = initCond.getUp0();
+  testICCalc(u0Tmp, up0Tmp, res, id, tf);
+#endif
   
   sol.time(0) = tspan(0);
   sol.u.resize(numTimes, numFEEqns);
@@ -617,13 +611,15 @@ void PDE1dImpl::testMats()
 }
 
 
-void PDE1dImpl::setAlgVarFlags(N_Vector id)
+void PDE1dImpl::setAlgVarFlags(SunVector &y0p, SunVector &id)
 {
-  RealMatrix y0FE(numDepVars, numNodes);
-  std::copy_n(y0.data(), numFEEqns, y0FE.data());
+
+  MapMat y0FE(y0.data(), numDepVars, numNodes);
   
-  N_VConst(1, id);
-  double *iddata = NV_DATA_S(id);
+  double t0 = tspan[0];
+
+  id.setConstant(1);
+  double *iddata = id.data();
   MapMat idMat(iddata, numDepVars, numNodes);
 
   // flag equations where c==0
@@ -668,7 +664,7 @@ void PDE1dImpl::setAlgVarFlags(N_Vector id)
       double xi = mesh(i);
       const auto &ui = y0FE.col(i);
       const auto &dUiDx = duPts.col(i);
-      pde.evalPDE(xi, 0, ui, dUiDx, v, vDot, coeffs);
+      pde.evalPDE(xi, t0, ui, dUiDx, v, vDot, coeffs);
       for (int j = 0; j < numDepVars; j++)
         if (coeffs.c[j] == 0)
           idMat(j, i) = 0;
@@ -683,7 +679,40 @@ void PDE1dImpl::setAlgVarFlags(N_Vector id)
     if (dirConsFlagsRight[i])
       iddata[i + rtBcOff] = 0;
   }
-  //print(id, "id");
+
+  // check ODEs
+  if (numODE) {
+    v = y0.bottomRows(numODE);
+    vDot = y0p.bottomRows(numODE);
+    RealMatrix odeJac = calcODEJacobian(t0, y0FE, v, vDot);
+    //cout << "odeJac:\n" << odeJac << endl;
+    for (int i = 0; i < numODE; i++) {
+      auto rci = odeJac.row(i) + odeJac.col(i).transpose();
+      if ((rci.array() == 0).all())
+        id(numFEEqns + i) = 0;
+    }
+    //print(id.getNV(), "id");
+  }
+}
+
+RealMatrix PDE1dImpl::calcODEJacobian(double time, const RealMatrix &yFE, 
+  RealVector &v, RealVector &vdot)
+{
+  RealMatrix jac(numODE, numODE);
+  meshMapper->mapFunction(yFE, odeU);
+  meshMapper->mapFunctionDer(yFE, odeDuDx);
+  pde.evalODE(time, v, vDot, odeU, odeDuDx, odeF);
+  RealVector vdotDelta = vDot, fDelta(numODE);
+  double sqrtEps = sqrt(std::numeric_limits<double>::epsilon());
+  for (int i = 0; i < numODE; i++) {
+    double h = sqrtEps*std::max(vDot[i], 1.0);
+    double tmpVdotI = vDot[i];
+    vdotDelta[i] += h;
+    pde.evalODE(time, v, vdotDelta, odeU, odeDuDx, fDelta);
+    jac.col(i) = (fDelta - odeF) / h;
+    vdotDelta[i] = tmpVdotI;
+  }
+  return jac;
 }
 
 void PDE1dImpl::checkIncreasing(const RealVector &v, 
@@ -793,13 +822,18 @@ void PDE1dImpl::testICCalc(SunVector &uu, SunVector &up, SunVector &res,
   finiteDiffJacobian->calcJacobian(0, 1, 0, uu.getNV(), up.getNV(), 
     res.getNV(), resFunc, this, dfDy);
   cout << "dfDy\n" << dfDy.toDense() << endl;
+  Eigen::FullPivLU<RealMatrix> lu(dfDy.toDense());
+  printf("dfdy: n=%d, rank=%d\n", dfDy.rows(), lu.rank());
+
 #if 0
   fDiffJac->calcJacobian(0, 0, 1, uu.getNV(), up.getNV(), res.getNV(), 
     resFunc, this, dfDyp);
 #else
   calcJacobian(0, 0, 1, uu, up, res, dfDyp);
 #endif
-  cout << "dfDyp\n" << dfDyp.toDense() << endl;
+  //cout << "dfDyp\n" << dfDyp.toDense() << endl;
+  printMat(dfDyp.toDense(), "dfDyp");
+#if 0
 
   int ier = IDACalcIC(ida, IDA_YA_YDP_INIT, tf);
   print(id.getNV(), "id vector");
@@ -807,6 +841,7 @@ void PDE1dImpl::testICCalc(SunVector &uu, SunVector &up, SunVector &res,
   ier = IDAGetConsistentIC(ida, yy0_mod.getNV(), yp0_mod.getNV());
   print(yy0_mod.getNV(), "ICy");
   print(yp0_mod.getNV(), "ICyp");
+#endif
 
   throw PDE1dException("pde1d:test", "IC test completed");
 }

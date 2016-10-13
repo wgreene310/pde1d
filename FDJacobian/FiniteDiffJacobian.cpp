@@ -4,6 +4,13 @@
 #include "FDJacobian.h"
 #include "SunVector.h"
 
+namespace {
+  const double sqrtEps = sqrt(std::numeric_limits<double>::epsilon());
+  inline double stepLen(double vi) {
+    return sqrtEps*std::max(std::abs(vi), 1.0);
+  }
+}
+
 FiniteDiffJacobian::FiniteDiffJacobian(SparseMat &jacPattern)
 {
   neq = jacPattern.rows();
@@ -25,8 +32,6 @@ FiniteDiffJacobian::FiniteDiffJacobian(SparseMat &jacPattern)
   dsm_(&neq, &neq, &nnz, indrow.data(), indcol.data(), ngrp.data(),
     &maxgrp, &mingrp, &info, ipntr.data(), jpntr.data(), iwa.data(), &liwa);
   //printf("info=%d, maxgrp=%d, mingrp=%d\n", info, maxgrp, mingrp);
-
-  sqrtEps = sqrt(std::numeric_limits<double>::epsilon());
 }
 
 
@@ -69,7 +74,7 @@ void FiniteDiffJacobian::calcJacobian(double tres, double alpha,
       for (int j = 0; j < neq; j++) {
         d[j] = 0;
         if (ngrp[j] == numgrp) {
-          d[j] = sqrtEps*std::max(u0[j], 1.0);
+          d[j] = stepLen(u0[j]);
         }
         u[j] = u0[j] + d[j];
       }
@@ -90,7 +95,7 @@ void FiniteDiffJacobian::calcJacobian(double tres, double alpha,
       for (int j = 0; j < neq; j++) {
         d[j] = 0;
         if (ngrp[j] == numgrp) {
-          d[j] = sqrtEps*std::max(up0[j], 1.0);
+          d[j] = stepLen(up0[j]);
         }
         uDot[j] = up0[j] + d[j];
       }
@@ -133,7 +138,7 @@ void FiniteDiffJacobian::calcJacobianCD(double tres, double alpha,
       for (int j = 0; j < neq; j++) {
         d[j] = 0;
         if (ngrp[j] == numgrp) {
-          d[j] = sqrtEps*std::max(u0[j], 1.0);
+          d[j] = stepLen(u0[j]);
         }
         u[j] = u0[j] + d[j];
         umd[j] = u0[j] - d[j];
@@ -157,7 +162,7 @@ void FiniteDiffJacobian::calcJacobianCD(double tres, double alpha,
       for (int j = 0; j < neq; j++) {
         d[j] = 0;
         if (ngrp[j] == numgrp) {
-          d[j] = sqrtEps*std::max(up0[j], 1.0);
+          d[j] = stepLen(up0[j]);
         }
         uDot[j] = up0[j] + d[j];
         umd[j] = up0[j] - d[j];

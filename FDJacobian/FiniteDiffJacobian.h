@@ -49,6 +49,5 @@ private:
   int neq, nnz;
   Eigen::VectorXi indrow, jpntr, ngrp;
   int maxgrp, mingrp;
-  double sqrtEps;
 };
 
