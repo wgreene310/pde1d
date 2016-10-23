@@ -73,6 +73,9 @@ PDE1dMexInt::PDE1dMexInt(int m, const mxArray *pdefun, const mxArray *icfun,
   mxVDot = 0;
   mxOdeU = 0;
   mxOdeDuDx = 0;
+  mxOdeR = 0;
+  mxOdeDuDt = 0;
+  mxOdeDuDxDt = 0;
 }
 
 
@@ -87,6 +90,9 @@ PDE1dMexInt::~PDE1dMexInt()
   destroy(mxVDot);
   destroy(mxOdeU);
   destroy(mxOdeDuDx);
+  destroy(mxOdeR);
+  destroy(mxOdeDuDt);
+  destroy(mxOdeDuDxDt);
 }
 
 void PDE1dMexInt::destroy(mxArray *a)
@@ -108,6 +114,9 @@ void PDE1dMexInt::setODEDefn(const mxArray *odeFun, const mxArray *icFun,
   mxVDot = mxCreateDoubleMatrix(numODE, 1, mxREAL);
   mxOdeU = mxCreateDoubleMatrix(numXi, 1, mxREAL);
   mxOdeDuDx = mxCreateDoubleMatrix(numXi, 1, mxREAL);
+  mxOdeR = mxCreateDoubleMatrix(numXi, 1, mxREAL);
+  mxOdeDuDt = mxCreateDoubleMatrix(numXi, 1, mxREAL);
+  mxOdeDuDxDt = mxCreateDoubleMatrix(numXi, 1, mxREAL);
   odeMeshVec = MexInterface::fromMxArrayVec(odeMesh);
 }
 
@@ -196,7 +205,8 @@ void PDE1dMexInt::evalPDE(const RealVector &x, double t,
 
 void PDE1dMexInt::evalODE(double t, const RealVector &v,
   const RealVector &vdot, const RealMatrix &u, const RealMatrix &DuDx,
-   RealVector &f)
+  const RealMatrix &odeR, const RealMatrix &odeDuDt,
+  const RealMatrix &odeDuDxDt, RealVector &f)
 {
   // odeFunc(t,v,vdot,x,u,DuDx)
   setScalar(t, mxT);
@@ -204,10 +214,13 @@ void PDE1dMexInt::evalODE(double t, const RealVector &v,
   setVector(vdot, mxVDot);
   setMatrix(u, mxOdeU);
   setMatrix(DuDx, mxOdeDuDx);
+  setMatrix(odeR, mxOdeR);
+  setMatrix(odeDuDt, mxOdeDuDt);
+  setMatrix(odeDuDxDt, mxOdeDuDxDt);
   const int nargout = 1;
-  const int nargin = 7;
+  const int nargin = 10;
   const mxArray *funcInp[] = { odefun, mxT, mxV, mxVDot, odeMesh,
-    mxOdeU, mxOdeDuDx };
+    mxOdeU, mxOdeDuDx, mxOdeR, mxOdeDuDt, mxOdeDuDxDt };
   RealVector *outArgs[] = { &f };
   callMatlab(funcInp, nargin, outArgs, nargout);
 }

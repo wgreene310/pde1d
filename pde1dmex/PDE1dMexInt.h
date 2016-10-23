@@ -55,7 +55,9 @@ public:
   virtual int getNumPDE() const { return numPDE; }
   virtual void evalODE(double t, const RealVector &v,
     const RealVector &vdot,
-    const RealMatrix &u, const RealMatrix &DuDx, RealVector &f);
+    const RealMatrix &u, const RealMatrix &DuDx, const RealMatrix &R,
+    const RealMatrix &odeDuDt, const RealMatrix &odeDuDxDt,
+    RealVector &f);
 private:
   static void setScalar(double x, mxArray *a) {
     double *p = mxGetPr(a); p[0] = x;
@@ -92,7 +94,8 @@ private:
 
   mxArray *mxX1, *mxX2, *mxT; // scalar x and t
   mxArray *mxVec1, *mxVec2; // input to pde function
-  mxArray *mxV, *mxVDot, *mxOdeU, *mxOdeDuDx;
+  mxArray *mxV, *mxVDot, *mxOdeU, *mxOdeDuDx, *mxOdeR, 
+    *mxOdeDuDt, *mxOdeDuDxDt;
   static const int maxMatlabRetArgs = 4;
   mxArray *matOutArgs[maxMatlabRetArgs];
 };

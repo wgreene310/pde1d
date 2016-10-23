@@ -52,13 +52,15 @@ public:
   }
   void testMats();
 private:
+  void calcGlobalEqns(double t, SunVector &u, SunVector &up, 
+    RealVector &Cxd, RealVector &F, RealVector &S);
   template<class T, class TR>
-  void calcGlobalEqns(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
+  void calcGlobalEqnsScalar(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
   template<class T, class TR>
   void calcGlobalEqnsVec(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
   void setAlgVarFlags(SunVector &y0p, SunVector &id);
   RealMatrix calcODEJacobian(double time, const RealMatrix &yFE, 
-    RealVector &v, RealVector &vdot);
+    const RealMatrix &ypFE, const RealMatrix &r2, RealVector &v, RealVector &vdot);
   void checkIncreasing(const RealVector &v, int argNum, const char *argName);
   void checkCoeffs(const PDE1dDefn::PDE &coeffs);
   void printStats();
@@ -88,7 +90,7 @@ private:
   std::unique_ptr<ShapeFunction> sf;
   std::unique_ptr<PDEMeshMapper> meshMapper;
   RealVector v, vDot, odeF;
-  RealMatrix odeU, odeDuDx;
+  RealMatrix odeU, odeDuDx, odeFlux, odeDuDt, odeDuDxDt;
 };
 
 #define FUNC_NAME "pde1d"
