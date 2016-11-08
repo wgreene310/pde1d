@@ -39,11 +39,6 @@ namespace {
     }
   }
 
-  template<class T>
-  void print(const T &a, const char *name) {
-
-  }
-
 }
 
 PDE1dMexInt::PDE1dMexInt(int m, const mxArray *pdefun, const mxArray *icfun,

@@ -16,6 +16,8 @@
 #ifndef GausLegendreIntRule_h
 #define GausLegendreIntRule_h
 
+#include <vector>
+
 class GausLegendreIntRule
 {
 public:
@@ -24,8 +26,9 @@ public:
   struct IRule { double xi, wt; };
   const IRule &getPoint(int iPt) const;
   int getNumPoints() const { return numPts;  }
+  typedef std::vector<IRule> IRuleList;
+  IRuleList computePts();
 private:
-  
   int numPts;
   IRule *rule;
 };
