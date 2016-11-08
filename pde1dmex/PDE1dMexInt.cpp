@@ -177,7 +177,7 @@ void PDE1dMexInt::evalPDE(double x, double t,
 
 void PDE1dMexInt::evalPDE(const RealVector &x, double t,
   const RealMatrix &u, const RealMatrix &DuDx, 
-  const RealVector &v, const RealVector &vDot, PDEVec &pde)
+  const RealVector &v, const RealVector &vDot, PDECoeff &pde)
 {
   // Evaluate pde coefficients at all x-locations
   // [c,f,s] = heatpde(x,t,u,DuDx)
@@ -297,6 +297,24 @@ void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
     std::copy_n(mxGetPr(a), retRows*retCols, outArgs[i]->data());
     if (a)
       mxDestroyArray(a);
+  }
+}
+
+void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin, int nargout)
+{
+  int err = mexCallMATLAB(nargout, matOutArgs, nargin,
+    const_cast<mxArray**>(inArgs), "feval");
+  if (err) {
+    char msg[1024];
+    std::string funcName = getFuncNameFromHandle(inArgs[0]);
+    sprintf(msg, "An error occurred in the call to user-defined function:\n\"%s\".",
+      funcName.c_str());
+    mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:err", msg);
+  }
+  for (int i = 0; i < nargout; i++) {
+    mxArray *a = matOutArgs[i];
+    if (!a)
+      mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:arg", "Error in mexCallMATLAB arg.");
   }
 }
 

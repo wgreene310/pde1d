@@ -15,6 +15,7 @@
 
 #include <limits>
 #include <iostream>
+#include <cmath>
 
 using std::cout;
 using std::endl;
@@ -108,9 +109,13 @@ pde(pde), options(options)
     dirConsFlagsRight[i] = bc.qr[i] == 0;
   }
 
-  coeffs.c.resize(numDepVars);
-  coeffs.f.resize(numDepVars);
-  coeffs.s.resize(numDepVars);
+  int numXPts = 1;
+  if (options.isVectorized()) {
+    numXPts = intRule->getNumPoints()*(numNodes - 1);
+  }
+  pdeCoeffs.c.resize(numDepVars, numXPts);
+  pdeCoeffs.f.resize(numDepVars, numXPts);
+  pdeCoeffs.s.resize(numDepVars, numXPts);
 
   Cxd.resize(numFEEqns);
   F.resize(numFEEqns);
@@ -125,7 +130,6 @@ pde(pde), options(options)
     std::unique_ptr<FiniteDiffJacobian>(new FiniteDiffJacobian(P));
 
 }
-
 
 PDE1dImpl::~PDE1dImpl()
 {
@@ -346,12 +350,17 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
   cout << "N\n" << N << endl;
 #endif
 
+  pdeCoeffs.c.resize(numDepVars, 1);
+  pdeCoeffs.f.resize(numDepVars, 1);
+  pdeCoeffs.s.resize(numDepVars, 1);
+
   RealMatrix eCMat = RealMatrix::Zero(numElemEqns, numElemEqns);
   RealVector eF = RealVector::Zero(numElemEqns);
   RealVector eS = RealVector::Zero(numElemEqns);
   RealVector eUp(numElemEqns);
   RealMatrix eCj(nen, nen);
   RealVector eFj(numElemNodes), eSj(numElemNodes);
+  RealVector xiV(1);
 
   RealVector &x = mesh;
   int ne = numNodes - 1;
@@ -370,23 +379,27 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
       double xi = x(e)*N(0, i) + x(e + 1)*N(1, i);
       auto ui = u2.col(e)*N(0, i) + u2.col(e + 1)*N(1, i);
       auto dUiDx = (u2.col(e)*dNdx(0) + u2.col(e + 1)*dNdx(1));
-      pde.evalPDE(xi, t, ui, dUiDx, v, vDot, coeffs);
-      checkCoeffs(coeffs);
+      xiV(0) = xi;
+      pde.evalPDE(xiV, t, ui, dUiDx, v, vDot, pdeCoeffs);
+      Eigen::Ref<Eigen::VectorXd> cIp = pdeCoeffs.c.col(0);
+      Eigen::Ref<Eigen::VectorXd> sIp = pdeCoeffs.s.col(0);
+      Eigen::Ref<Eigen::VectorXd> fIp = pdeCoeffs.f.col(0);
+      checkCoeffs(pdeCoeffs);
       double xm = 1;
       if (m == 1)
         xm = xi;
       else if(m == 2)
         xm = xi*xi;
-      coeffs.c *= xm;
-      coeffs.s *= xm;
-      coeffs.f *= xm;
+      cIp *= xm;
+      sIp *= xm;
+      fIp *= xm;
  
       for (int j = 0; j < numDepVars; j++) {
-        eCj  = N.col(i)*coeffs.c(j)*N.col(i).transpose()*jacWt;
+        eCj  = N.col(i)*cIp(j)*N.col(i).transpose()*jacWt;
         //eCMat += eCj;
-        eFj = dNdx*coeffs.f(j)*jacWt;
+        eFj = dNdx*fIp(j)*jacWt;
         //eF += eFj;
-        eSj = N.col(i)*coeffs.s(j)*jacWt;
+        eSj = N.col(i)*sIp(j)*jacWt;
         //eS += eSj;
         for (int k = 0; k < numElemNodes; k++) {
           int kk = j + k*numDepVars;
@@ -469,10 +482,10 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
         ip++;
       }
     }
-    coeffsAllPts.c.resize(numDepVars, numXPts);
-    coeffsAllPts.f.resize(numDepVars, numXPts);
-    coeffsAllPts.s.resize(numDepVars, numXPts);
-    pde.evalPDE(xPts, t, uPts, duPts, v, vDot, coeffsAllPts);
+    pdeCoeffs.c.resize(numDepVars, numXPts);
+    pdeCoeffs.f.resize(numDepVars, numXPts);
+    pdeCoeffs.s.resize(numDepVars, numXPts);
+    pde.evalPDE(xPts, t, uPts, duPts, v, vDot, pdeCoeffs);
 
     RealMatrix eCMat = RealMatrix::Zero(numElemEqns, numElemEqns);
     RealVector eF = RealVector::Zero(numElemEqns);
@@ -481,7 +494,6 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
     RealMatrix eCj(nen, nen);
     RealVector eFj(numElemNodes), eSj(numElemNodes);
 
-    
     ip = 0; 
     int eInd = 0;
     for (int e = 0; e < ne; e++) {
@@ -496,9 +508,9 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
         // assume two node elements
         double jacWt = jac*intWts(i);
         double xi = xPts(ip);
-        Eigen::Ref<Eigen::VectorXd> cIp = coeffsAllPts.c.col(ip);
-        Eigen::Ref<Eigen::VectorXd> sIp = coeffsAllPts.s.col(ip);
-        Eigen::Ref<Eigen::VectorXd> fIp = coeffsAllPts.f.col(ip);
+        Eigen::Ref<Eigen::VectorXd> cIp = pdeCoeffs.c.col(ip);
+        Eigen::Ref<Eigen::VectorXd> sIp = pdeCoeffs.s.col(ip);
+        Eigen::Ref<Eigen::VectorXd> fIp = pdeCoeffs.f.col(ip);
         double xm = 1;
         if (m == 1)
           xm = xi;
@@ -661,26 +673,33 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0p, SunVector &id)
       duPts.col(i) = (y0FE.col(i-1)*dNdx(0) + y0FE.col(i)*dNdx(1));
   }
 
+  int numXPts = 1;
+  if (options.isVectorized())
+    numXPts = numNodes;
+  pdeCoeffs.c.resize(numDepVars, numXPts);
+  pdeCoeffs.f.resize(numDepVars, numXPts);
+  pdeCoeffs.s.resize(numDepVars, numXPts);
+
   if (options.isVectorized() && pde.hasVectorPDEEval()) {
-    coeffsAllPts.c.resize(numDepVars, numNodes);
-    coeffsAllPts.f.resize(numDepVars, numNodes);
-    coeffsAllPts.s.resize(numDepVars, numNodes);
     pde.evalPDE(mesh, 0, y0FE, duPts, 
-      v, vDot, coeffsAllPts);
+      v, vDot, pdeCoeffs);
     for (int i = 0; i < numNodes; i++) {
       for (int j = 0; j < numDepVars; j++)
-        if (coeffsAllPts.c(j,i)==0)
+        if (pdeCoeffs.c(j,i)==0)
           idMat(j, i) = 0;
     }
   }
   else {
+    RealVector xiV(1);
     for (int i = 0; i < numNodes; i++) {
       double xi = mesh(i);
       const auto &ui = y0FE.col(i);
       const auto &dUiDx = duPts.col(i);
-      pde.evalPDE(xi, t0, ui, dUiDx, v, vDot, coeffs);
+      xiV(0) = xi;
+      Eigen::Ref<Eigen::VectorXd> cIp = pdeCoeffs.c.col(0);
+      pde.evalPDE(xiV, t0, ui, dUiDx, v, vDot, pdeCoeffs);
       for (int j = 0; j < numDepVars; j++)
-        if (coeffs.c[j] == 0)
+        if (cIp[j] == 0)
           idMat(j, i) = 0;
     }
   }
@@ -755,14 +774,22 @@ void PDE1dImpl::checkIncreasing(const RealVector &v,
   }
 }
 
-void PDE1dImpl::checkCoeffs(const PDE1dDefn::PDE &coeffs)
+void PDE1dImpl::checkCoeffs(const PDE1dDefn::PDECoeff &coeffs)
 {
-  for (int i = 0; i < coeffs.c.size(); i++) {
-    if (coeffs.c[i] != 0)
-      return;
+  for (int j = 0; j < coeffs.c.cols(); j++) {
+    int zeroCol = -1;
+    bool allZero = true;
+    for (int i = 0; i < coeffs.c.rows(); i++) {
+      if (coeffs.c.col(j)[i] != 0) {
+        allZero = false;
+        break;
+      }
+    }
+    if (allZero) {
+      throw PDE1dException("pde1d:no_parabolic_eqn", "At least one of the "
+        "entries in the c-coefficient vector must be non-zero.");
+    }
   }
-  throw PDE1dException("pde1d:no_parabolic_eqn", "At least one of the "
-    "entries in the c-coefficient vector must be non-zero.");
 }
 
 void PDE1dImpl::printStats()

@@ -62,7 +62,7 @@ private:
   RealMatrix calcODEJacobian(double time, const RealMatrix &yFE, 
     const RealMatrix &ypFE, const RealMatrix &r2, RealVector &v, RealVector &vdot);
   void checkIncreasing(const RealVector &v, int argNum, const char *argName);
-  void checkCoeffs(const PDE1dDefn::PDE &coeffs);
+  void checkCoeffs(const PDE1dDefn::PDECoeff &coeffs);
   void printStats();
   void calcJacPattern(Eigen::SparseMatrix<double> &jac);
   void testICCalc(SunVector &uu, SunVector &up, SunVector &res,
@@ -79,8 +79,7 @@ private:
   std::vector<bool> dirConsFlagsLeft, dirConsFlagsRight;
   RealVector y0;
   PDE1dDefn::BC bc;
-  PDE1dDefn::PDE coeffs;
-  PDE1dDefn::PDEVec coeffsAllPts; // FIXME should have only one of coeffs or this one
+  PDE1dDefn::PDECoeff pdeCoeffs;
   RealVector Cxd, F, S;
   // temporary arrays for vectorized mode
   RealVector xPts;

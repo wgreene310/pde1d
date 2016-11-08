@@ -25,12 +25,12 @@ public:
   virtual RealVector getMesh() = 0;
   virtual RealVector getTimeSpan() = 0;
   virtual bool hasVectorPDEEval() const { return false;  }
-  struct PDEVec {
+  struct PDECoeff {
     RealMatrix c, f, s;
   };
   virtual void evalPDE(const RealVector &x, double t,
     const RealMatrix &u, const RealMatrix &DuDx, 
-    const RealVector &v, const RealVector &vDot, PDEVec &pde) {}
+    const RealVector &v, const RealVector &vDot, PDECoeff &pde) {}
   virtual int getNumODE() const { return 0; }
   struct ODE {
     RealVector c, f;

@@ -45,7 +45,7 @@ public:
   virtual bool hasVectorPDEEval() const { return true; }
   virtual void evalPDE(const RealVector &x, double t,
     const RealMatrix &u, const RealMatrix &DuDx, 
-    const RealVector &v, const RealVector &vDot, PDEVec &pde);
+    const RealVector &v, const RealVector &vDot, PDECoeff &pde);
   virtual RealVector getMesh();
   virtual const RealVector &getODEMesh();
   virtual RealVector getTimeSpan();
@@ -85,6 +85,7 @@ private:
     RealVector *outArgs[], int nargout);
   void callMatlab(const mxArray *inArgs[], int nargin,
     RealMatrix *outArgs[], int nargout);
+  void callMatlab(const mxArray *inArgs[], int nargin, int nargout);
   static std::string getFuncNameFromHandle(const mxArray *fh);
   static void destroy(mxArray *a);
   int mCoord, numPDE, numODE;
