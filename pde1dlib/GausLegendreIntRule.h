@@ -28,6 +28,9 @@ public:
   int getNumPoints() const { return numPts;  }
   typedef std::vector<IRule> IRuleList;
   IRuleList computePts();
+  static int getNumPtsForPolyOrder(int polyOrder) {
+    return (int) ceil((polyOrder + 1) / 2.);
+  }
 private:
   int numPts;
   IRule *rule;

@@ -43,6 +43,7 @@ using std::endl;
 #include "SunVector.h"
 #include "FiniteDiffJacobian.h"
 #include "ShapeFunction.h"
+#include "ShapeFunctionManager.h"
 #include "PDEInitConditions.h"
 #include "PDEMeshMapper.h"
 #include <util.h>
@@ -57,8 +58,10 @@ pde(pde), options(options)
 #else
   sf = std::unique_ptr<ShapeFunction2>(new ShapeFunction2);
 #endif
+  sfm = std::unique_ptr<ShapeFunctionManager>(new ShapeFunctionManager);
   ida = 0;
-  intRule = new GausLegendreIntRule(3);
+  polyOrder = 1;
+  numIntPts = GausLegendreIntRule::getNumPtsForPolyOrder(2 * polyOrder);
   mesh = pde.getMesh();
   checkIncreasing(mesh, 5, "meshPts");
   tspan = pde.getTimeSpan();
@@ -111,7 +114,7 @@ pde(pde), options(options)
 
   int numXPts = 1;
   if (options.isVectorized()) {
-    numXPts = intRule->getNumPoints()*(numNodes - 1);
+    numXPts = numIntPts*(numNodes - 1);
   }
   pdeCoeffs.c.resize(numDepVars, numXPts);
   pdeCoeffs.f.resize(numDepVars, numXPts);
@@ -134,7 +137,6 @@ pde(pde), options(options)
 PDE1dImpl::~PDE1dImpl()
 {
   if(ida) IDAFree(&ida);
-  delete intRule;
 }
 
 namespace {
@@ -334,18 +336,12 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
   //cout << "u2=" << u2.transpose() << endl;
   //cout << "up2=" << up2.transpose() << endl;
 
-  int numIntPts = intRule->getNumPoints();
-  RealVector intPts(numIntPts), intWts(numIntPts);
-  RealMatrix N(nen, numIntPts), dN(nen, numIntPts);
-  for (int i = 0; i < numIntPts; i++) {
-    double pt;
-    intRule->getPoint(i, pt, intWts[i]);
-    intPts[i] = pt;
-    sf->N(pt, N.col(i).data());
-    sf->dNdr(pt, dN.col(i).data());
-  }
+  const ShapeFunctionManager::EvaluatedSF &esf = 
+    sfm->getShapeFunction(polyOrder, numIntPts);
+  const RealMatrix &N = esf.N();
+  const RealMatrix &dN = esf.dN();
+  const RealVector &intWts = esf.intRuleWts();
 #if 0
-  cout << "intPts=" << intPts.transpose() << endl;
   cout << "intWts=" << intWts.transpose() << endl;
   cout << "N\n" << N << endl;
 #endif
@@ -444,18 +440,12 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
     //cout << "u2=" << u2.transpose() << endl;
     //cout << "up2=" << up2.transpose() << endl;
 
-    int numIntPts = intRule->getNumPoints();
-    RealVector intPts(numIntPts), intWts(numIntPts);
-    RealMatrix N(nen, numIntPts), dN(nen, numIntPts);
-    for (int i = 0; i < numIntPts; i++) {
-      double pt;
-      intRule->getPoint(i, pt, intWts[i]);
-      intPts[i] = pt;
-      sf->N(pt, N.col(i).data());
-      sf->dNdr(pt, dN.col(i).data());
-    }
+    const ShapeFunctionManager::EvaluatedSF &esf =
+      sfm->getShapeFunction(1, numIntPts);
+    const RealMatrix &N = esf.N();
+    const RealMatrix &dN = esf.dN();
+    const RealVector &intWts = esf.intRuleWts();
 #if 0
-    cout << "intPts=" << intPts.transpose() << endl;
     cout << "intWts=" << intWts.transpose() << endl;
     cout << "N\n" << N << endl;
 #endif
