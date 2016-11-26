@@ -7,30 +7,35 @@
 
 #include "ShapeFunctionManager.h"
 
+ShapeFunctionManager::EvaluatedSF::EvaluatedSF(int pOrder, int numIntPts) :
+intRule(GausLegendreIntRule(numIntPts)), 
+sf(ShapeFunctionHierarchical(pOrder))
+{
+}
+
+
 ShapeFunctionManager::ShapeFunctionManager()
 {
 
 }
 
-const ShapeFunctionManager::EvaluatedSF &ShapeFunctionManager::getShapeFunction(int polyOrder, 
-  int numIntPts)
+const ShapeFunctionManager::EvaluatedSF &ShapeFunctionManager::getShapeFunction(int polyOrder)
 {
-  IIP p(polyOrder, numIntPts);
-  SFMap::iterator it = sfMap.find(p);
+  int numIntPts = GausLegendreIntRule::getNumPtsForPolyOrder(2 * polyOrder);
+  SFMap::iterator it = sfMap.find(polyOrder);
   if (it == sfMap.end()) {
-    EvaluatedSF esf(numIntPts);
+    EvaluatedSF esf(polyOrder, numIntPts);
     int ndof = polyOrder + 1;
     esf.N_.resize(ndof, numIntPts);
     esf.dN_.resize(ndof, numIntPts);
     esf.intRuleWts_.resize(numIntPts);
-    ShapeFunctionHierarchical sf(polyOrder);
     for (int i = 0; i < numIntPts; i++) {
       double pt;
       esf.intRule.getPoint(i, pt, esf.intRuleWts_[i]);
-      sf.N(pt, esf.N_.col(i).data());
-      sf.dNdr(pt, esf.dN_.col(i).data());
+      esf.sf.N(pt, esf.N_.col(i).data());
+      esf.sf.dNdr(pt, esf.dN_.col(i).data());
     }
-    auto iit = sfMap.insert(std::make_pair(p, esf));
+    auto iit = sfMap.insert(std::make_pair(polyOrder, esf));
     it = iit.first;
   }
   return it->second;

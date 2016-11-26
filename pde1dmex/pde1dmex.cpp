@@ -121,61 +121,62 @@ void PDE1dWarningMsg(const char *id, const char *msg) {
 void mexFunction(int nlhs, mxArray*
   plhs[], int nrhs, const mxArray *prhs[])
 {
-  //printf("nlhs=%d, nrhs=%d\n", nlhs, nrhs); return;
-  int optsArg = -1;
-  if (nrhs == 7)
-    optsArg = 6;
-  else if(nrhs == 10)
-    optsArg = 9;
-  else if(nrhs != 6 && nrhs != 9)
-    mexErrMsgIdAndTxt("pde1d:nrhs", 
-    "Illegal number of input arguments passed to " FUNC_NAME);
-
-  const bool hasODE = nrhs > 7;
-
-  const mxArray *pM = prhs[0];
-  if (! mxIsNumeric(pM) || mxGetNumberOfElements(pM) != 1) {
-    mexErrMsgIdAndTxt("pde1d:invalid_m_type", 
-      "First argument must be an integer scalar.");
-  }
-
-  int m = (int) mxGetScalar(pM);
-  if (m != 0 && m != 1 && m != 2)
-    mexErrMsgIdAndTxt("pde1d:invalid_m_val", 
-    "First argument must be either 0, 1, or 2");
-
-  for (int i = 1; i < 4; i++) {
-    if (!mxIsFunctionHandle(prhs[i])) {
-      char msg[80];
-      sprintf(msg, "Argument %d is not a function handle.", i + 1);
-      mexErrMsgIdAndTxt("pde1d:arg_not_func", msg);
-    }
-  }
-
-  const mxArray *pX = prhs[4], *pT = prhs[5];
-  if (!mxIsNumeric(pX) || mxIsComplex(pX))
-    mexErrMsgIdAndTxt("pde1d:mesh_type", 
-    "Argument \"meshPts\" must be a real vector.");
-  if (mxGetNumberOfElements(pX) < 3)
-    mexErrMsgIdAndTxt("pde1d:mesh_length", 
-    "Length of argument \"meshPts\", must be at least three.");
-
-  if (!mxIsNumeric(pT) || mxIsComplex(pT))
-    mexErrMsgIdAndTxt("pde1d:time_type", 
-    "Argument \"timePts\" must be a real vector.");
-  if (mxGetNumberOfElements(pT) < 3)
-    mexErrMsgIdAndTxt("pde1d:time_length", 
-    "Length of argument \"timePts\", must be at least three.");
-
-  PDE1dOptions opts;
-  if (optsArg > 0)
-    opts = getOptions(prhs[optsArg]);
-
-  std::fill_n(plhs, nlhs, nullptr);
- 
   PDESolution pdeSol;
   int numPde = 0, numPts = 0, numOde = 0;
   try {
+
+    //printf("nlhs=%d, nrhs=%d\n", nlhs, nrhs); return;
+    int optsArg = -1;
+    if (nrhs == 7)
+      optsArg = 6;
+    else if (nrhs == 10)
+      optsArg = 9;
+    else if (nrhs != 6 && nrhs != 9)
+      mexErrMsgIdAndTxt("pde1d:nrhs",
+      "Illegal number of input arguments passed to " FUNC_NAME);
+
+    const bool hasODE = nrhs > 7;
+
+    const mxArray *pM = prhs[0];
+    if (!mxIsNumeric(pM) || mxGetNumberOfElements(pM) != 1) {
+      mexErrMsgIdAndTxt("pde1d:invalid_m_type",
+        "First argument must be an integer scalar.");
+    }
+
+    int m = (int)mxGetScalar(pM);
+    if (m != 0 && m != 1 && m != 2)
+      mexErrMsgIdAndTxt("pde1d:invalid_m_val",
+      "First argument must be either 0, 1, or 2");
+
+    for (int i = 1; i < 4; i++) {
+      if (!mxIsFunctionHandle(prhs[i])) {
+        char msg[80];
+        sprintf(msg, "Argument %d is not a function handle.", i + 1);
+        mexErrMsgIdAndTxt("pde1d:arg_not_func", msg);
+      }
+    }
+
+    const mxArray *pX = prhs[4], *pT = prhs[5];
+    if (!mxIsNumeric(pX) || mxIsComplex(pX))
+      mexErrMsgIdAndTxt("pde1d:mesh_type",
+      "Argument \"meshPts\" must be a real vector.");
+    if (mxGetNumberOfElements(pX) < 3)
+      mexErrMsgIdAndTxt("pde1d:mesh_length",
+      "Length of argument \"meshPts\", must be at least three.");
+
+    if (!mxIsNumeric(pT) || mxIsComplex(pT))
+      mexErrMsgIdAndTxt("pde1d:time_type",
+      "Argument \"timePts\" must be a real vector.");
+    if (mxGetNumberOfElements(pT) < 3)
+      mexErrMsgIdAndTxt("pde1d:time_length",
+      "Length of argument \"timePts\", must be at least three.");
+
+    PDE1dOptions opts;
+    if (optsArg > 0)
+      opts = getOptions(prhs[optsArg]);
+
+    std::fill_n(plhs, nlhs, nullptr);
+
     PDE1dMexInt pde(m, prhs[1], prhs[2], prhs[3],
       prhs[4], prhs[5]);
     if (hasODE) {
@@ -186,7 +187,7 @@ void mexFunction(int nlhs, mxArray*
     }
     else {
       if (nlhs > 1)
-        mexErrMsgIdAndTxt("pde1d:nlhs", 
+        mexErrMsgIdAndTxt("pde1d:nlhs",
         "pde1d returns only a single matrix when there are no ODEs.");
     }
     numPde = pde.getNumPDE();
@@ -209,10 +210,9 @@ void mexFunction(int nlhs, mxArray*
   //mexPrintf("%d %d %d\n", pdeSol.time.size(), 
   //  pdeSol.u.rows(), pdeSol.u.cols());
 
-
   int numTimes = pdeSol.u.rows();
- /* mexPrintf("numTimes=%d, numPde=%d, numPts=%d\n",
-    numTimes, numPde, numPts);*/
+  /* mexPrintf("numTimes=%d, numPde=%d, numPts=%d\n",
+     numTimes, numPde, numPts);*/
   mxArray *sol;
   if (numPde > 1) {
     int ndims, dims[] = { numTimes, numPts, numPde };

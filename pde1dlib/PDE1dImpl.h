@@ -34,6 +34,7 @@ class ShapeFunctionManager;
 class SunVector;
 struct _SlsMat;
 class PDEMeshMapper;
+class PDEModel;
 
 class PDE1dImpl {
 public:
@@ -72,9 +73,9 @@ private:
   PDE1dDefn &pde;
   PDE1dOptions &options;
   RealVector mesh, tspan;
-  int numNodes, numTimes;
-  int numDepVars, numODE, numFEEqns, totalNumEqns;
-  int numNonZerosJacMax;
+  size_t numNodes, numTimes;
+  size_t numDepVars, numODE, numFEEqns, totalNumEqns;
+  size_t numNonZerosJacMax;
   static const int numElemNodes = 2;
   int polyOrder, numIntPts;
   std::vector<bool> dirConsFlagsLeft, dirConsFlagsRight;
@@ -90,6 +91,7 @@ private:
   std::unique_ptr<ShapeFunction> sf;
   std::unique_ptr<ShapeFunctionManager> sfm;
   std::unique_ptr<PDEMeshMapper> meshMapper;
+  std::unique_ptr<PDEModel> pdeModel;
   RealVector v, vDot, odeF;
   RealMatrix odeU, odeDuDx, odeFlux, odeDuDt, odeDuDxDt;
 };

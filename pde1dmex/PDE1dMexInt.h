@@ -33,7 +33,7 @@ public:
   virtual int getCoordSystem() const {
     return mCoord;
   }
-  int numNodes() { return mesh.size();  }
+  size_t numNodes() { return mesh.size(); }
   virtual void evalIC(double x, RealVector &ic);
   virtual void evalODEIC(RealVector &ic);
   virtual void evalBC(double xl, const RealVector &ul,

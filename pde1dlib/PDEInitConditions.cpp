@@ -29,7 +29,7 @@ PDEInitConditions::PDEInitConditions(void *idaMem, PDE1dImpl &pdeImpl,
   idaMem(idaMem), pdeImpl(pdeImpl), u0(u0), up0(up0)
 {
   icMeth = pdeImpl.getOptions().getICMethod();
-  int ne = u0.rows();
+  size_t ne = u0.rows();
   u0C = std::unique_ptr<SunVector>(new SunVector(ne));
   up0C = std::unique_ptr<SunVector>(new SunVector(ne));
 
@@ -56,7 +56,7 @@ PDEInitConditions::ICPair PDEInitConditions::init() {
 void PDEInitConditions::calcShampineAlgo(double t0,
   SunVector &yNew, SunVector &ypNew)
 {
-  const int numEqns = u0.rows();
+  const size_t numEqns = u0.rows();
   SparseMat dfDy(numEqns, numEqns), dfDyp(numEqns, numEqns);
   const int maxIter = 10;
   RealVector dy(numEqns), dyp(numEqns), dypP(numEqns);
@@ -110,8 +110,8 @@ void PDEInitConditions::calcShampineAlgo(double t0,
 #endif
     RealVector d = -(qr.matrixQ().transpose()*res);
     RealMatrix S = qr.matrixQ().transpose()*dfDy.toDense();
-    int rnk = qr.rank();
-    int numAlgVars = numEqns - rnk;
+    size_t rnk = qr.rank();
+    size_t numAlgVars = numEqns - rnk;
     if(diag)
       printf("IC: numEqns=%d, rnk=%d, numAlgVars=%d\n",
       numEqns, rnk, numAlgVars);

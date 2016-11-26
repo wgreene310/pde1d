@@ -6,7 +6,8 @@ using std::endl;
 
 #include "PDEMeshMapper.h"
 #include "PDE1dException.h"
-#include "ShapeFunction.h"
+#include "ShapeFunctionHierarchical.h"
+#include "PDEModel.h"
 
 #define DEBUGPRT 0
 
@@ -17,12 +18,12 @@ namespace {
 }
 
 
-PDEMeshMapper::PDEMeshMapper(const RealVector &srcMesh, const ShapeFunction &sf,
+PDEMeshMapper::PDEMeshMapper(const RealVector &srcMesh, const PDEModel &model,
   const RealVector &destMesh) :
-  srcMesh(srcMesh), destMesh(destMesh), sf(sf)
+  srcMesh(srcMesh), destMesh(destMesh), model(model)
 {
-  const int numDest = destMesh.size();
-  const int numSrc = srcMesh.size();
+  const size_t numDest = destMesh.size();
+  const size_t numSrc = srcMesh.size();
   destMeshParamVals.resize(numDest);
   destMeshElemIndex.resize(numDest);
   double tol = 100 * std::numeric_limits<double>::epsilon();
@@ -31,8 +32,8 @@ PDEMeshMapper::PDEMeshMapper(const RealVector &srcMesh, const ShapeFunction &sf,
     const double *begin = &srcMesh[0];
     const double *end = &srcMesh[numSrc - 1] + 1;
     const double *lwr = std::lower_bound(begin, end, xd);
-    int indRight;
-    int ind = lwr - begin;
+    size_t indRight;
+    size_t ind = lwr - begin;
 #if DEBUGPRT
     printf("dest val=%20.16e, ind=%d\n", xd, ind);
 #endif
@@ -62,7 +63,7 @@ PDEMeshMapper::PDEMeshMapper(const RealVector &srcMesh, const ShapeFunction &sf,
     printf("ind=%d, indRight=%d, s=%12.3e\n", ind, indRight, s);
 #endif
     destMeshParamVals[i] = s;
-    destMeshElemIndex[i] = indRight;
+    destMeshElemIndex[i] = static_cast<int>(indRight-1);
   }
 }
 
@@ -79,21 +80,33 @@ void PDEMeshMapper::mapFunctionDer(const RealMatrix &srcU, RealMatrix &destU)
 void PDEMeshMapper::mapFunctionImpl(const RealMatrix &srcU, RealMatrix &destU,
   bool calcDeriv)
 {
-  const int numDepVars = srcU.rows();
-  const int numDest = destMesh.size();
+  const size_t numDepVars = srcU.rows();
+  const size_t numDest = destMesh.size();
   destU.resize(numDepVars, numDest);
-  RealVector N(sf.numNodes());
+  destU.setZero();
+  const int maxElemNodes = ShapeFunctionHierarchical::MAX_DEGREE + 1;
+  RealVector N(maxElemNodes);
+  std::vector<int> elemDofs(maxElemNodes);
   for (int i = 0; i < numDest; i++) {
     double s = destMeshParamVals[i];
-    int indRight = destMeshElemIndex[i];
+    int eInd = destMeshElemIndex[i];
+    const PDEElement &elem = model.element(eInd);
+    const ShapeFunction &sf = elem.getSF().getShapeFunction();
+    model.getDofIndicesForElem(eInd, elemDofs);
+#if 0
+    printf("eInd=%d, nn=%d, dofs=%d %d\n", eInd, sf.numNodes(),
+      elemDofs[0], elemDofs[1]);
+#endif
+    N.resize(sf.numNodes());
     double jac = 1;
     if (calcDeriv) {
       sf.dNdr(s, N.data());
-      jac = 2. / (srcMesh[indRight]-srcMesh[indRight-1]);
+      jac = 2. / (srcMesh[eInd+1]-srcMesh[eInd]);
     }
     else
       sf.N(s, N.data());
-    
-    destU.col(i) = jac*(srcU.col(indRight - 1)*N[0] + srcU.col(indRight)*N[1]);
+    for (int j = 0; j < sf.numNodes(); j++)
+      destU.col(i) += srcU.col(elemDofs[j])*N[j];
+    destU.col(i) *= jac;
   }
 }

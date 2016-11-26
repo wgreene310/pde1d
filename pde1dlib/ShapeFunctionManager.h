@@ -20,26 +20,21 @@ public:
   ShapeFunctionManager();
   class EvaluatedSF {
   public:
-    EvaluatedSF(int numIntPts) : 
-      intRule(GausLegendreIntRule(numIntPts)) {}
     const Eigen::MatrixXd &N() const { return N_; }
     const Eigen::MatrixXd &dN() const { return dN_; }
     const Eigen::VectorXd &intRuleWts() const { return intRuleWts_;  }
+    const ShapeFunction &getShapeFunction() const { return sf; }
   private:
     friend class ShapeFunctionManager;
+    EvaluatedSF(int pOrder, int numIntPts);
+    ShapeFunctionHierarchical sf;
     Eigen::MatrixXd N_, dN_;
     GausLegendreIntRule intRule;
     Eigen::VectorXd intRuleWts_;
   };
-  const EvaluatedSF &getShapeFunction(int polyOrder, int numIntpts);
+  const EvaluatedSF &getShapeFunction(int polyOrder);
 private:
-  typedef std::pair<int, int> IIP;
-  struct HashIntPair {
-    size_t operator()(const IIP &p) const {
-      return std::hash < int > {}(10 * p.first + p.second);
-    }
-  };
-  typedef std::unordered_map<IIP, EvaluatedSF, HashIntPair> SFMap;
+  typedef std::unordered_map<int, EvaluatedSF> SFMap;
   SFMap sfMap;
 };
 

@@ -8,11 +8,11 @@ Eigen::VectorXd linspace(double a, double b, int n);
 
 template<class T>
 void printMat(const T &a, const char *title, const char *format = "%16.9e,") {
-  const int m = a.rows();
-  const int n = a.cols();
+  const size_t m = a.rows();
+  const size_t n = a.cols();
   printf("%s(%d,%d)\n", title, m, n);
-  for (int i = 0; i < m; i++) {
-    for (int j = 0; j < n; j++) {
+  for (size_t i = 0; i < m; i++) {
+    for (size_t j = 0; j < n; j++) {
       printf(format, a(i, j));
     }
     printf("\n");

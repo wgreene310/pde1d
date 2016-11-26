@@ -19,7 +19,8 @@
 #include "PDE1dException.h"
 
 
-SunVector::SunVector(size_t n) : _SundialsVector_(N_VNew_Serial(n)),
+SunVector::SunVector(size_t n) : 
+_SundialsVector_(N_VNew_Serial((int) n)),
 Eigen::Map<Eigen::VectorXd>(NV_DATA_S(nv), n)
 {
   if (!nv) {
@@ -32,7 +33,7 @@ Eigen::Map<Eigen::VectorXd>(NV_DATA_S(nv), n)
 }
 
 SunVector::SunVector(const SunVector &rhs) : 
-_SundialsVector_(N_VNew_Serial(rhs.size())), 
+_SundialsVector_(N_VNew_Serial((int) rhs.size())), 
 Eigen::Map<Eigen::VectorXd>(NV_DATA_S(nv), rhs.size())
 {
   if (!nv) {

@@ -13,8 +13,8 @@ namespace {
 
 FiniteDiffJacobian::FiniteDiffJacobian(SparseMat &jacPattern)
 {
-  neq = jacPattern.rows();
-  nnz = jacPattern.nonZeros();
+  neq = static_cast<int>(jacPattern.rows());
+  nnz = static_cast<int>(jacPattern.nonZeros());
   indrow.resize(nnz);
   jpntr.resize(nnz);
   ngrp.resize(neq);
@@ -22,8 +22,8 @@ FiniteDiffJacobian::FiniteDiffJacobian(SparseMat &jacPattern)
   int ii = 0;
   for (int k = 0; k < jacPattern.outerSize(); ++k)
     for (SparseMat::InnerIterator it(jacPattern, k); it; ++it) {
-    indrow[ii] = it.row() + 1;   // row index
-    indcol[ii] = it.col() + 1;
+    indrow[ii] = static_cast<int>(it.row() + 1);   // row index
+    indcol[ii] = static_cast<int>(it.col() + 1);
     ii++;
     }
   const int liwa = 6 * neq;

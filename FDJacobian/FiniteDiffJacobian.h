@@ -22,9 +22,9 @@
 
 struct SunSparseMat : public _SlsMat {
   SunSparseMat(Eigen::SparseMatrix<double> &eMat) {
-    M = eMat.rows();
-    N = eMat.cols();
-    NNZ = eMat.nonZeros();
+    M = static_cast<int>(eMat.rows());
+    N = static_cast<int>(eMat.cols());
+    NNZ = static_cast<int>(eMat.nonZeros());
     data = eMat.valuePtr();
     rowvals = eMat.innerIndexPtr();
     colptrs = eMat.outerIndexPtr();

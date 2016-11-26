@@ -2,20 +2,26 @@ CC=mkoctfile -mex
 CXX=mkoctfile -mex
 
 ifndef REL
-  #REL=4.2.0-rc2
-	REL=4.0.0
+  REL=4.2.0
+	#REL=4.0.0
 endif
 
 ifeq ($(findstring Windows, $(OS)),Windows)
-	EIGEN=$(HOME)/src/Eigen/eigen-3.2.6
+  WIN64=true
+	EIGEN=$(HOME)/src/Eigen/eigen-3.3
 	BOOST_ROOT=C:/boost/boost_1_57_0
 	OCTAVE_ROOT=c:/Octave/Octave-$(REL)
 	OCTAVE_INC=$(OCTAVE_ROOT)/include/octave-$(REL)/octave
 	SUNDIALS_ROOT=$(HOME)/src/sundials-2.6.2/
 	SUNDIALS_INC=-I$(SUNDIALS_ROOT)/include -I./ -Ic:/wgreene/tests/c++/sundialsExamples/pde1dmex_mingw
-	SUNDIALS_LDIR=$(SUNDIALS_ROOT)
 	LIB_OCT=-L$(OCTAVE_ROOT)/lib/octave/$(REL) -loctave.dll -loctinterp.dll
-	SUITESPARSE_LIB_DIR = $(HOME)/src/sparse_solvers/SuiteSparse/libs/mingw32
+	ifdef WIN64
+	  SUITESPARSE_LIB_DIR = $(HOME)/src/sparse_solvers/SuiteSparse/libs/mingw64
+		SUNDIALS_LDIR=$(SUNDIALS_ROOT)/mingw64
+	else
+	  SUITESPARSE_LIB_DIR = $(HOME)/src/sparse_solvers/SuiteSparse/libs/mingw32
+		SUNDIALS_LDIR=$(SUNDIALS_ROOT)/mingw32
+	endif
 	SUITESPARSE_LIBS=-L$(SUITESPARSE_LIB_DIR) \
 	                -lklu -lamd -lcolamd -lbtf -lsuitesparseconfig
 else
@@ -47,18 +53,19 @@ else
 endif
 
 INC=-I$(EIGEN) -I$(OCTAVE_INC) $(SUNDIALS_INC) \
-     -Ipde1dlib -IFDJacobian -I$(BOOST_ROOT)
+     -Ipde1dlib -IFDJacobian -Iutil -I$(BOOST_ROOT)
 
 CXXFLAGS= -g -O2 -std=gnu++0x -Wno-deprecated-declarations $(INC)
 
-VPATH=./pde1dlib ./pde1dmex ./FDJacobian
+VPATH=./pde1dlib ./pde1dmex ./FDJacobian ./util
 
 LIBS=$(SUNDIALS_LDIR)/libsundials_ida.a $(SUNDIALS_LDIR)/libsundials_nvecserial.a \
      $(LIB_OCT) $(SUITESPARSE_LIBS)
 
 OBJS=pde1dmex.o PDE1dMexInt.o PDE1dImpl.o PDE1dDefn.o PDEInitConditions.o \
      GausLegendreIntRule.o SunVector.o FDJacobian.o FiniteDiffJacobian.o \
-		 ShapeFunction.o MexInterface.o PDEMeshMapper.o
+		 ShapeFunction.o MexInterface.o PDEMeshMapper.o PDEModel.o PDEElement.o util.o \
+		 ShapeFunctionManager.o ShapeFunctionHierarchical.o
 
 pde1d.mex: $(OBJS)
 	mkoctfile -mex  $(OBJS) $(LIBS) -o pde1d.mex

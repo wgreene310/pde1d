@@ -28,12 +28,12 @@ namespace {
 
   void print(const mxArray *a, const char *name)
   {
-    int m = mxGetM(a);
-    int n = mxGetN(a);
+    size_t m = mxGetM(a);
+    size_t n = mxGetN(a);
     const Eigen::Map<Eigen::MatrixXd> A(mxGetPr(a), m, n);
     mexPrintf("%s(%d,%d)\n", name, m, n);
-    for (int i = 0; i < m; i++) {
-      for (int j = 0; j < n; j++)
+    for (size_t i = 0; i < m; i++) {
+      for (size_t j = 0; j < n; j++)
         printf("%g ", A(i, j));
       printf("\n");
     }
@@ -104,7 +104,7 @@ void PDE1dMexInt::setODEDefn(const mxArray *odeFun, const mxArray *icFun,
   odeIcFun = icFun;
   odeMesh = odemesh;
   setNumOde();
-  int numXi = mxGetNumberOfElements(odeMesh);
+  size_t numXi = mxGetNumberOfElements(odeMesh);
   mxV = mxCreateDoubleMatrix(numODE, 1, mxREAL);
   mxVDot = mxCreateDoubleMatrix(numODE, 1, mxREAL);
   mxOdeU = mxCreateDoubleMatrix(numXi, 1, mxREAL);
@@ -247,12 +247,12 @@ void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
     mxArray *a = matOutArgs[i];
     if (! a)
       mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:arg", "Error in mexCallMATLAB arg.");
-    int retLen = mxGetNumberOfElements(a);
-    int exLen = outArgs[i]->size();
+    size_t retLen = mxGetNumberOfElements(a);
+    size_t exLen = outArgs[i]->size();
     if (retLen != exLen) {
       char msg[1024];
       std::string funcName = getFuncNameFromHandle(inArgs[0]);
-      int m = mxGetM(a), n = mxGetN(a);
+      size_t m = mxGetM(a), n = mxGetN(a);
       sprintf(msg, "In the call to user-defined function:\n\"%s\"\n"
         "returned entry %d had size (%d x %d) but a vector of size (%d x 1)"
         " was expected.", funcName.c_str(), i + 1, m, n, exLen);
@@ -280,10 +280,10 @@ void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
     mxArray *a = matOutArgs[i];
     if (!a)
       mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:arg", "Error in mexCallMATLAB arg.");
-    int retRows = mxGetM(a);
-    int retCols = mxGetN(a);
-    int exRows = outArgs[i]->rows();
-    int exCols = outArgs[i]->cols();
+    size_t retRows = mxGetM(a);
+    size_t retCols = mxGetN(a);
+    size_t exRows = outArgs[i]->rows();
+    size_t exCols = outArgs[i]->cols();
     if (retRows != exRows || retCols != exCols) {
       char msg[1024];
       std::string funcName = getFuncNameFromHandle(inArgs[0]);
