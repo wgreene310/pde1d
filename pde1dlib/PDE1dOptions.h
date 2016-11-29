@@ -25,6 +25,7 @@ public:
     maxSteps = 10000;
     ICMethod = 0;
     ICDiagnostics = 0;
+    polyOrder = 1;
   }
   double getRelTol() const { return relTol;  }
   double getAbsTol() const { return absTol;  }
@@ -40,6 +41,10 @@ public:
   void setICMethod(int meth) { ICMethod = meth;  }
   int getICDiagnostics() const { return ICDiagnostics;  }
   void setICDiagnostics(int diag) { ICDiagnostics = diag; }
+  void setPolyOrder(int pOrder) { polyOrder = pOrder;  }
+  int getPolyOrder() const {
+    return polyOrder;
+  }   
 private:
   double relTol, absTol;
   bool vectorizedFuncs;
@@ -47,6 +52,7 @@ private:
   bool stats;
   int ICMethod;
   int ICDiagnostics;
+  int polyOrder;
 };
 
 #endif

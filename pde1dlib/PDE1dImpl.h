@@ -73,10 +73,10 @@ private:
   PDE1dDefn &pde;
   PDE1dOptions &options;
   RealVector mesh, tspan;
-  size_t numNodes, numTimes;
+  size_t numNodes;
+  size_t numTimes;
   size_t numDepVars, numODE, numFEEqns, totalNumEqns;
   size_t numNonZerosJacMax;
-  static const int numElemNodes = 2;
   int polyOrder, numIntPts;
   std::vector<bool> dirConsFlagsLeft, dirConsFlagsRight;
   RealVector y0;

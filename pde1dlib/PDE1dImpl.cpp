@@ -15,10 +15,9 @@
 
 #include <limits>
 #include <iostream>
-#include <cmath>
-
 using std::cout;
 using std::endl;
+#include <cmath>
 
 #include <Eigen/LU>
 
@@ -51,6 +50,29 @@ using std::endl;
 
 #define DEBUG_MATS 0
 
+#define CALL_TEST_FUNC 0
+
+namespace {
+
+  void globalToElemVec(const PDEModel::DofList &eDofs, const RealMatrix &ug,
+    RealMatrix &ue) {
+    size_t n = eDofs.size();
+    ue.resize(ue.rows(), n);
+    for (size_t i = 0; i < n; i++)
+      ue.col(i) = ug.col(eDofs[i]);
+  }
+
+  template<class TE, class TG>
+  void assembleElemVec(const PDEModel::DofList &eDofs, size_t numNds, size_t numDofPerNode,
+    const TE &eVec, TG &gVec) {
+    size_t n = eDofs.size();
+    Eigen::Map<const RealMatrix> eMat(eVec.data(), numDofPerNode, n);
+    Eigen::Map<RealMatrix> gMat(&gVec[0], numDofPerNode, numNds);
+    for (size_t i = 0; i < n; i++)
+      gMat.col(eDofs[i]) += eMat.col(i);
+  }
+}
+
 PDE1dImpl::PDE1dImpl(PDE1dDefn &pde, PDE1dOptions &options) : 
 pde(pde), options(options)
 {
@@ -61,7 +83,7 @@ pde(pde), options(options)
 #endif
   sfm = std::unique_ptr<ShapeFunctionManager>(new ShapeFunctionManager);
   ida = 0;
-  polyOrder = 1;
+  polyOrder = options.getPolyOrder();
   numIntPts = GausLegendreIntRule::getNumPtsForPolyOrder(2 * polyOrder);
   mesh = pde.getMesh();
   checkIncreasing(mesh, 5, "meshPts");
@@ -71,7 +93,9 @@ pde(pde), options(options)
   numTimes = tspan.size();
   numODE = pde.getNumODE();
   numDepVars = pde.getNumPDE();
-  numFEEqns = numNodes*numDepVars;
+  pdeModel = std::unique_ptr<PDEModel>(
+    new PDEModel(mesh, polyOrder, numDepVars, *sfm.get()));
+  numFEEqns = pdeModel->numEquations();
   totalNumEqns = numFEEqns + numODE;
   dirConsFlagsLeft.resize(numDepVars);
   dirConsFlagsRight.resize(numDepVars);
@@ -83,8 +107,6 @@ pde(pde), options(options)
     pde.evalIC(mesh(i), ic);
     y0FE.col(i) = ic;
   }
-  pdeModel = std::unique_ptr<PDEModel>(
-    new PDEModel(mesh, polyOrder, numDepVars, *sfm.get()));
   if (numODE) {
     v.resize(numODE);
     pde.evalODEIC(v);
@@ -127,6 +149,7 @@ pde(pde), options(options)
   F.resize(numFEEqns);
   S.resize(numFEEqns);
 
+#if ! CALL_TEST_FUNC
   //printf("Using sparse solver.\n");
   SparseMat P;
   calcJacPattern(P);
@@ -134,6 +157,7 @@ pde(pde), options(options)
   //cout << "P\n" << P << endl;
   finiteDiffJacobian = 
     std::unique_ptr<FiniteDiffJacobian>(new FiniteDiffJacobian(P));
+#endif
 
 }
 
@@ -213,7 +237,9 @@ namespace {
 
 int PDE1dImpl::solveTransient(PDESolution &sol)
 {
-
+#if CALL_TEST_FUNC
+  testMats();
+#endif
   sol.time.resize(numTimes);
 
   const size_t neqImpl = totalNumEqns;
@@ -328,22 +354,25 @@ template<class T, class TR>
 void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
   TR &Cxd, TR &F, TR &S)
 {
-  const int nen = numElemNodes; // work around for g++ link error
+  const ShapeFunctionManager::EvaluatedSF &esf =
+    sfm->getShapeFunction(polyOrder);
+  const RealMatrix &N = esf.N();
+  const RealMatrix &dN = esf.dN();
+  const RealVector &intWts = esf.intRuleWts();
+
+  const size_t nnfee = pdeModel->numNodesFEEqns();
+  const size_t nen = N.rows();
   const int m = pde.getCoordSystem();
   size_t numElemEqns = numDepVars*nen;
   Cxd.setZero();
 
   //cout << "u=" << u.transpose() << endl;
-  MapMat u2(u.data(), numDepVars, numNodes);
-  MapMat up2(up.data(), numDepVars, numNodes);
+  MapMat u2(u.data(), numDepVars, nnfee);
+  MapMat up2(up.data(), numDepVars, nnfee);
   //cout << "u2=" << u2.transpose() << endl;
   //cout << "up2=" << up2.transpose() << endl;
+  RealMatrix u2e(numDepVars, nen);
 
-  const ShapeFunctionManager::EvaluatedSF &esf = 
-    sfm->getShapeFunction(polyOrder);
-  const RealMatrix &N = esf.N();
-  const RealMatrix &dN = esf.dN();
-  const RealVector &intWts = esf.intRuleWts();
 #if 0
   cout << "intWts=" << intWts.transpose() << endl;
   cout << "N\n" << N << endl;
@@ -356,28 +385,35 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
   RealMatrix eCMat = RealMatrix::Zero(numElemEqns, numElemEqns);
   RealVector eF = RealVector::Zero(numElemEqns);
   RealVector eS = RealVector::Zero(numElemEqns);
-  RealVector eUp(numElemEqns);
+  RealVector eC = RealVector::Zero(numElemEqns);
+  RealMatrix up2e(numDepVars, nen);
+  Eigen::Map<RealVector> eUp(up2e.data(), numElemEqns);
   RealMatrix eCj(nen, nen);
   RealVector eFj(nen), eSj(nen);
   RealVector xiV(1);
+  PDEModel::DofList eDofs(nen);
 
   RealVector &x = mesh;
-  size_t ne = numNodes - 1;
+  size_t ne = pdeModel->numElements();
   size_t eInd = 0;
   for (int e = 0; e < ne; e++) {
+    const PDEElement &elem = pdeModel->element(e);
+    pdeModel->getDofIndicesForElem(e, eDofs);
+    globalToElemVec(eDofs, u2, u2e);
+    globalToElemVec(eDofs, up2, up2e);
     eCMat.setZero();
     eF.setZero();
     eS.setZero();
     double L = x(e + 1) - x(e);
     //fprintf('elem=%d\n', e);
     double jac = L / 2;
-    auto dNdx = dN.col(0) / jac;
     for (int i = 0; i < numIntPts; i++) {
       // assume two node elements
       double jacWt = jac*intWts(i);
       double xi = x(e)*N(0, i) + x(e + 1)*N(1, i);
-      auto ui = u2.col(e)*N(0, i) + u2.col(e + 1)*N(1, i);
-      auto dUiDx = (u2.col(e)*dNdx(0) + u2.col(e + 1)*dNdx(1));
+      auto dNdx = dN.col(i) / jac;
+      auto ui = u2e*N.col(i);
+      auto dUiDx = u2e*dNdx;
       xiV(0) = xi;
       pde.evalPDE(xiV, t, ui, dUiDx, v, vDot, pdeCoeffs);
       Eigen::Ref<Eigen::VectorXd> cIp = pdeCoeffs.c.col(0);
@@ -400,11 +436,11 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
         //eF += eFj;
         eSj = N.col(i)*sIp(j)*jacWt;
         //eS += eSj;
-        for (int k = 0; k < numElemNodes; k++) {
+        for (int k = 0; k < nen; k++) {
           size_t kk = j + k*numDepVars;
           eF(kk) += eFj(k);
           eS(kk) += eSj(k);
-          for (int l = 0; l < numElemNodes; l++) {
+          for (int l = 0; l < nen; l++) {
             size_t ll = j + l*numDepVars;
             eCMat(kk, ll) += eCj(k, l);
           }
@@ -415,15 +451,11 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
     cout << "eF: " << eF.transpose() << endl;
     cout << "eCMat\n" << eCMat << endl;
 #endif
-    eUp.head(numDepVars) = up2.col(e);
-    eUp.tail(numDepVars) = up2.col(e+1);
-#if DEBUG_MATS
-    //cout << "eUp=" << eUp.transpose() << endl;
-#endif
-    Cxd.segment(eInd, numElemEqns) += eCMat*eUp;
-    F.segment(eInd, numElemEqns) += eF;
-    S.segment(eInd, numElemEqns) += eS;
-    eInd += numDepVars;
+    eC = eCMat*eUp;
+    assembleElemVec(eDofs, nnfee, numDepVars, eC, Cxd);
+    //cout << "eF=" << eF.transpose() << endl;
+    assembleElemVec(eDofs, nnfee, numDepVars, eF, F);
+    assembleElemVec(eDofs, nnfee, numDepVars, eS, S);
   }
   //cout << "F\n" << F << endl;
 }
@@ -432,22 +464,25 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
   void PDE1dImpl::calcGlobalEqnsVec(double t, T &u, T &up,
     TR &Cxd, TR &F, TR &S)
   {
-    const int nen = numElemNodes; // work around for g++ link error
+    const ShapeFunctionManager::EvaluatedSF &esf =
+      sfm->getShapeFunction(polyOrder);
+    const RealMatrix &N = esf.N();
+    const RealMatrix &dN = esf.dN();
+    const RealVector &intWts = esf.intRuleWts();
+
+    const size_t nnfee = pdeModel->numNodesFEEqns();
+    const size_t nen = N.rows();
     const int m = pde.getCoordSystem();
     size_t numElemEqns = numDepVars*nen;
     Cxd.setZero();
 
     //cout << "u=" << u.transpose() << endl;
-    MapMat u2(u.data(), numDepVars, numNodes);
-    MapMat up2(up.data(), numDepVars, numNodes);
+    MapMat u2(u.data(), numDepVars, nnfee);
+    MapMat up2(up.data(), numDepVars, nnfee);
     //cout << "u2=" << u2.transpose() << endl;
     //cout << "up2=" << up2.transpose() << endl;
+    RealMatrix u2e(numDepVars, nen);
 
-    const ShapeFunctionManager::EvaluatedSF &esf =
-      sfm->getShapeFunction(1);
-    const RealMatrix &N = esf.N();
-    const RealMatrix &dN = esf.dN();
-    const RealVector &intWts = esf.intRuleWts();
 #if 0
     cout << "intWts=" << intWts.transpose() << endl;
     cout << "N\n" << N << endl;
@@ -460,18 +495,23 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
     uPts.resize(numDepVars, numXPts);
     duPts.resize(numDepVars, numXPts);
 
+    PDEModel::DofList eDofs(nen);
+
     RealVector &x = mesh;
     int ip = 0;
     for (int e = 0; e < ne; e++) {
+      const PDEElement &elem = pdeModel->element(e);
+      pdeModel->getDofIndicesForElem(e, eDofs);
+      globalToElemVec(eDofs, u2, u2e);
+      //cout << "u2e=" << u2e << endl;
       double L = x(e + 1) - x(e);
       double jac = L / 2;
       for (int i = 0; i < numIntPts; i++) {
-        // assume two node elements
         double jacWt = jac*intWts(i);
         xPts(ip) = x(e)*N(0, i) + x(e + 1)*N(1, i);
-        uPts.col(ip) = u2.col(e)*N(0, i) + u2.col(e + 1)*N(1, i);
-        auto dNdx = dN.col(0) / jac;
-        duPts.col(ip) = (u2.col(e)*dNdx(0) + u2.col(e + 1)*dNdx(1));
+        auto dNdx = dN.col(i) / jac;
+        uPts.col(ip) = u2e*N.col(i);
+        duPts.col(ip) = u2e*dNdx;
         ip++;
       }
     }
@@ -483,24 +523,31 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
     RealMatrix eCMat = RealMatrix::Zero(numElemEqns, numElemEqns);
     RealVector eF = RealVector::Zero(numElemEqns);
     RealVector eS = RealVector::Zero(numElemEqns);
-    RealVector eUp(numElemEqns);
+    RealVector eC = RealVector::Zero(numElemEqns);
     RealMatrix eCj(nen, nen);
     RealVector eFj(nen), eSj(nen);
+    RealMatrix up2e(numDepVars, nen);
+    Eigen::Map<RealVector> eUp(up2e.data(), numElemEqns);
+
+    //cout << "xPts=" << xPts.transpose() << endl;
 
     ip = 0; 
     size_t eInd = 0;
     for (int e = 0; e < ne; e++) {
+      const PDEElement &elem = pdeModel->element(e);
+      pdeModel->getDofIndicesForElem(e, eDofs);
+      globalToElemVec(eDofs, up2, up2e);
       eCMat.setZero();
       eF.setZero();
       eS.setZero();
       double L = x(e + 1) - x(e);
       //fprintf('elem=%d\n', e);
       double jac = L / 2;
-      auto dNdx = dN.col(0) / jac;
       for (int i = 0; i < numIntPts; i++) {
         // assume two node elements
         double jacWt = jac*intWts(i);
         double xi = xPts(ip);
+        auto dNdx = dN.col(i) / jac;
         Eigen::Ref<Eigen::VectorXd> cIp = pdeCoeffs.c.col(ip);
         Eigen::Ref<Eigen::VectorXd> sIp = pdeCoeffs.s.col(ip);
         Eigen::Ref<Eigen::VectorXd> fIp = pdeCoeffs.f.col(ip);
@@ -520,11 +567,11 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
           //eF += eFj;
           eSj = N.col(i)*sIp(j)*jacWt;
           //eS += eSj;
-          for (int k = 0; k < numElemNodes; k++) {
+          for (int k = 0; k < nen; k++) {
             size_t kk = j + k*numDepVars;
             eF(kk) += eFj(k);
             eS(kk) += eSj(k);
-            for (int l = 0; l < numElemNodes; l++) {
+            for (int l = 0; l < nen; l++) {
               size_t ll = j + l*numDepVars;
               eCMat(kk, ll) += eCj(k, l);
             }
@@ -536,17 +583,17 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
       cout << "eF: " << eF.transpose() << endl;
       cout << "eCMat\n" << eCMat << endl;
 #endif
-      eUp.head(numDepVars) = up2.col(e);
-      eUp.tail(numDepVars) = up2.col(e + 1);
-#if DEBUG_MATS
-      //cout << "eUp=" << eUp.transpose() << endl;
-#endif
-      Cxd.segment(eInd, numElemEqns) += eCMat*eUp;
-      F.segment(eInd, numElemEqns) += eF;
-      S.segment(eInd, numElemEqns) += eS;
-      eInd += numDepVars;
+      eC = eCMat*eUp;
+      assembleElemVec(eDofs, nnfee, numDepVars, eC, Cxd);
+      //cout << "eF=" << eF.transpose() << endl;
+      assembleElemVec(eDofs, nnfee, numDepVars, eF, F);
+      assembleElemVec(eDofs, nnfee, numDepVars, eS, S);
     }
-    //cout << "F\n" << F << endl;
+#if 0
+    cout << "F\n" << F.transpose() << endl;
+    cout << "C\n" << Cxd.transpose() << endl;
+    cout << "S\n" << S.transpose() << endl;
+#endif
   }
 
   void PDE1dImpl::calcRHSODE(double time, SunVector &u, SunVector &up, 
@@ -607,26 +654,34 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
 
 void PDE1dImpl::testMats()
 {
-  SunVector u(numFEEqns), up(numFEEqns);
+  cout << "numFEEqns=" << numFEEqns << endl;
+  SunVector u(numFEEqns), up(numFEEqns), R(numFEEqns);
   for (int i = 0; i < numFEEqns; i++) {
     u(i) = .1*(i+1);
     up(i) = 0;
   }
+#if 1
   RealVector Cxd = RealVector::Zero(numFEEqns);
   RealVector F = RealVector::Zero(numFEEqns);
   RealVector S = RealVector::Zero(numFEEqns);
   calcGlobalEqns(0, u, up, Cxd, F, S);
-  cout << "Cxd\n" << Cxd.transpose() << endl;
-  cout << "F\n" << F.transpose() << endl;
-  cout << "S\n" << S.transpose() << endl;
+  cout << "Cxd=" << Cxd.transpose() << endl;
+  cout << "F=" << F.transpose() << endl;
+  cout << "S=" << S.transpose() << endl;
 #if 0
   RealVector R = RealVector::Zero(numFEMEqns);
   calcRHSODE(0, u, up, R);
 #else
-  RealVector R = S - F;
+  R = S - F;
 #endif
   cout << "R\n" << R.transpose() << endl;
-  throw PDE1dException("pde1d:testResidual", "residual test complete.");
+#endif
+#if 0
+  SparseMat jac(numFEEqns, numFEEqns);
+  calcJacobian(0, 1, 0, u, up, R, jac);
+  cout << "jac\n" << jac.toDense() << endl;
+#endif
+  throw PDE1dException("pde1d:testResidual", "test complete.");
 }
 
 
@@ -642,10 +697,10 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0p, SunVector &id)
   MapMat idMat(iddata, numDepVars, numNodes);
 
   // flag equations where c==0
-  const int nen = numElemNodes;
-  RealMatrix dN(nen, nen);
   double xi[] = { -1, 1 };
-  for (int i = 0; i < numElemNodes; i++) {
+  const int nen = 2;
+  RealMatrix dN(nen, nen);
+  for (int i = 0; i < nen; i++) {
     double pt = xi[i];
     sf->dNdr(pt, dN.col(i).data());
   }
@@ -826,7 +881,7 @@ void PDE1dImpl::calcJacPattern(Eigen::SparseMatrix<double> &J)
     eOff += numDepVars;
   }
   // odes may couple with any other vars
-  eOff = numNodes*numDepVars;
+  eOff = numFEEqns;
   for (int i = 0; i < numODE; i++) {
     for (int j = 0; j < numODE; j++)
       J.insert(i + eOff, j + eOff) = 1;

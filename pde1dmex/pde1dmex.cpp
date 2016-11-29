@@ -94,6 +94,10 @@ namespace {
         int icDiag = (int) mxGetScalar(val);
         pdeOpts.setICDiagnostics(icDiag);
       }
+      else if (boost::iequals(ni, "polyorder")) {
+        int porder = (int)mxGetScalar(val);
+        pdeOpts.setPolyOrder(porder);
+      }
       else {
         char msg[1024];
         sprintf(msg, "The options argument contains the field \"%s\".\n"
@@ -160,9 +164,9 @@ void mexFunction(int nlhs, mxArray*
     if (!mxIsNumeric(pX) || mxIsComplex(pX))
       mexErrMsgIdAndTxt("pde1d:mesh_type",
       "Argument \"meshPts\" must be a real vector.");
-    if (mxGetNumberOfElements(pX) < 3)
+    if (mxGetNumberOfElements(pX) < 2)
       mexErrMsgIdAndTxt("pde1d:mesh_length",
-      "Length of argument \"meshPts\", must be at least three.");
+      "Length of argument \"meshPts\", must be at least two.");
 
     if (!mxIsNumeric(pT) || mxIsComplex(pT))
       mexErrMsgIdAndTxt("pde1d:time_type",

@@ -1,3 +1,7 @@
+#include <iostream>
+using std::cout;
+using std::endl;
+
 #include "PDEModel.h"
 #include "ShapeFunctionManager.h"
 
@@ -18,6 +22,8 @@ sfm(sfm)
     elementDofOffsets[i] = dof;
     dof += polyOrder;
   }
+  numNodesFEEqns_ = (dof + 1);
+  numEqns = numDofsPerNode*numNodesFEEqns_;
 }
 
 
@@ -26,7 +32,7 @@ PDEModel::~PDEModel()
 }
 
 void PDEModel::getDofIndicesForElem(int elemIndex,
-  std::vector<int> &dofs) const
+  DofList &dofs) const
 {
   const PDEElement &elem = elements[elemIndex];
   const ShapeFunctionManager::EvaluatedSF &esf = elem.getSF();
