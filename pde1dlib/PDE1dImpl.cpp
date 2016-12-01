@@ -18,8 +18,13 @@
 using std::cout;
 using std::endl;
 #include <cmath>
+#include <algorithm>
 
 #include <Eigen/LU>
+
+#define DEBUG_MATS 0
+
+#define CALL_TEST_FUNC 0
 
 #define DAE_Y_INIT 0
 
@@ -48,10 +53,6 @@ using std::endl;
 #include "PDEModel.h"
 #include <util.h>
 
-#define DEBUG_MATS 0
-
-#define CALL_TEST_FUNC 0
-
 namespace {
 
   void globalToElemVec(const PDEModel::DofList &eDofs, const RealMatrix &ug,
@@ -71,6 +72,7 @@ namespace {
     for (size_t i = 0; i < n; i++)
       gMat.col(eDofs[i]) += eMat.col(i);
   }
+
 }
 
 PDE1dImpl::PDE1dImpl(PDE1dDefn &pde, PDE1dOptions &options) : 
@@ -149,7 +151,6 @@ pde(pde), options(options)
   F.resize(numFEEqns);
   S.resize(numFEEqns);
 
-#if ! CALL_TEST_FUNC
   //printf("Using sparse solver.\n");
   SparseMat P;
   calcJacPattern(P);
@@ -157,8 +158,6 @@ pde(pde), options(options)
   //cout << "P\n" << P << endl;
   finiteDiffJacobian = 
     std::unique_ptr<FiniteDiffJacobian>(new FiniteDiffJacobian(P));
-#endif
-
 }
 
 PDE1dImpl::~PDE1dImpl()
@@ -312,8 +311,11 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
 #endif
   
   sol.time(0) = tspan(0);
-  sol.u.resize(numTimes, numFEEqns);
-  sol.u.row(0) = initCond.getU0().topRows(numFEEqns);
+  size_t numEqnsOrigMesh = mesh.rows()*numDepVars;
+  sol.u.resize(numTimes, numEqnsOrigMesh);
+  RealVector uTmp(numEqnsOrigMesh);
+  pdeModel->globalToMeshVec(initCond.getU0().topRows(numFEEqns), uTmp);
+  sol.u.row(0) = uTmp;
   if (numODE) {
     sol.uOde.resize(numTimes, numODE);
     sol.uOde.row(0) = initCond.getU0().bottomRows(numODE);
@@ -331,7 +333,8 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
       throw PDE1dException("pde1d:integ_failure", msg);
     }
     sol.time(i) = tret;
-    sol.u.row(i) = u.topRows(numFEEqns);
+    pdeModel->globalToMeshVec(u.topRows(numFEEqns), uTmp);
+    sol.u.row(i) = uTmp;
     if (numODE)
       sol.uOde.row(i) = u.bottomRows(numODE);
   }
@@ -676,7 +679,7 @@ void PDE1dImpl::testMats()
 #endif
   cout << "R\n" << R.transpose() << endl;
 #endif
-#if 0
+#if 1
   SparseMat jac(numFEEqns, numFEEqns);
   calcJacobian(0, 1, 0, u, up, R, jac);
   cout << "jac\n" << jac.toDense() << endl;
@@ -864,8 +867,34 @@ void PDE1dImpl::calcJacPattern(Eigen::SparseMatrix<double> &J)
 {
   J.resize(totalNumEqns, totalNumEqns);
   size_t n2 = numDepVars*numDepVars;
-  size_t nel = numNodes - 1;
+  size_t nel = pdeModel->numElements();
+#if 1
+  size_t nnz = 0;
+  size_t maxNN = 0;
+  for (int i = 0; i < nel; i++) {
+    size_t nen = pdeModel->element(i).numNodes();
+    maxNN = std::max(maxNN, nen);
+    nnz += nen*nen*n2;
+  }
+  PDEModel::DofList dofs(maxNN);
+  typedef Eigen::Triplet<int, int> T;
+  std::vector<T> tripList;
+  tripList.reserve(nnz);
+  int eOff = 0;
+  for (int i = 0; i < nel; i++) {
+    int nen = pdeModel->element(i).numNodes();
+    int neleq = nen*(int)numDepVars;
+    for (int i = 0; i < neleq; i++) {
+      for (int j = 0; j < neleq; j++) {
+        tripList.push_back(T(i+eOff, j+eOff, 1));
+      }
+    }
+    eOff += (nen-1)*static_cast<int>(numDepVars);
+  }
+  J.setFromTriplets(tripList.begin(), tripList.end());
+#else
   size_t nnz = 3 * n2*(nel + 1); // approximate nnz
+  //cout << "nnz=" << nnz << ", nnzX=" << nnzX << endl;
   J.reserve(nnz);
   size_t eOff = 0;
   for (int n = 0; n < nel + 1; n++) {
@@ -880,8 +909,9 @@ void PDE1dImpl::calcJacPattern(Eigen::SparseMatrix<double> &J)
     }
     eOff += numDepVars;
   }
+#endif
   // odes may couple with any other vars
-  eOff = numFEEqns;
+  eOff = static_cast<int>(numFEEqns);
   for (int i = 0; i < numODE; i++) {
     for (int j = 0; j < numODE; j++)
       J.insert(i + eOff, j + eOff) = 1;

@@ -19,6 +19,8 @@ public:
   size_t numElements() const { return elements.size();  }
   size_t numEquations() const { return numEqns; }
   size_t numNodesFEEqns() const { return numNodesFEEqns_;  }
+  template<class TG, class TM>
+  void globalToMeshVec(const TG &gV, TM &mV);
 private:
   const RealVector &origMesh;
   ShapeFunctionManager &sfm;
@@ -27,4 +29,18 @@ private:
   size_t numNodesFEEqns_, numDofsPerNode;
   size_t numEqns; // total number of equations in the model
 };
+
+template<class TG, class TM>
+void PDEModel::globalToMeshVec(const TG &gV, TM &mV) {
+  size_t nnMesh = origMesh.rows();
+  Eigen::Map<const RealMatrix> gM(gV.data(), numDofsPerNode, numNodesFEEqns_);
+  Eigen::Map<RealMatrix> mM(mV.data(), numDofsPerNode, nnMesh);
+  mM.col(0) = gM.col(0);
+  int iOff = 0;
+  for (int i = 0; i < elements.size(); i++) {
+    iOff += elements[i].numNodes() - 1;
+    mM.col(i+1) = gM.col(iOff);
+  }
+}
+
 
