@@ -60,7 +60,7 @@ private:
   void calcGlobalEqnsScalar(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
   template<class T, class TR>
   void calcGlobalEqnsVec(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
-  void setAlgVarFlags(SunVector &y0p, SunVector &id);
+  void setAlgVarFlags(SunVector &y0, SunVector &y0p, SunVector &id);
   RealMatrix calcODEJacobian(double time, const RealMatrix &yFE, 
     const RealMatrix &ypFE, const RealMatrix &r2, RealVector &v, RealVector &vdot);
   void checkIncreasing(const RealVector &v, int argNum, const char *argName);
@@ -70,16 +70,15 @@ private:
   void testICCalc(SunVector &uu, SunVector &up, SunVector &res,
     SunVector &id, double tf);
   double calcResidualNorm(double t, SunVector &uu, SunVector &up, SunVector &res);
+  void getFEInitConditions(RealVector &y0);
   PDE1dDefn &pde;
   PDE1dOptions &options;
   RealVector mesh, tspan;
-  size_t numNodes;
   size_t numTimes;
   size_t numDepVars, numODE, numFEEqns, totalNumEqns;
   size_t numNonZerosJacMax;
   int polyOrder, numIntPts;
   std::vector<bool> dirConsFlagsLeft, dirConsFlagsRight;
-  RealVector y0;
   PDE1dDefn::BC bc;
   PDE1dDefn::PDECoeff pdeCoeffs;
   RealVector Cxd, F, S;

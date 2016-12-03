@@ -37,7 +37,7 @@ void PDEModel::globalToMeshVec(const TG &gV, TM &mV) {
   Eigen::Map<RealMatrix> mM(mV.data(), numDofsPerNode, nnMesh);
   mM.col(0) = gM.col(0);
   int iOff = 0;
-  for (int i = 0; i < elements.size(); i++) {
+  for (int i = 0; i < numElements(); i++) {
     iOff += elements[i].numNodes() - 1;
     mM.col(i+1) = gM.col(iOff);
   }

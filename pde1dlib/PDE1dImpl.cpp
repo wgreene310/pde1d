@@ -64,6 +64,13 @@ namespace {
   }
 
   template<class TE, class TG>
+  void elemToGlobalVec(const PDEModel::DofList &eDofs, const TE &ue, TG &ug) {
+    size_t n = eDofs.size();
+    for (size_t i = 0; i < n; i++)
+      ug.col(eDofs[i]) = ue.col(i);
+  }
+
+  template<class TE, class TG>
   void assembleElemVec(const PDEModel::DofList &eDofs, size_t numNds, size_t numDofPerNode,
     const TE &eVec, TG &gVec) {
     size_t n = eDofs.size();
@@ -91,7 +98,6 @@ pde(pde), options(options)
   checkIncreasing(mesh, 5, "meshPts");
   tspan = pde.getTimeSpan();
   checkIncreasing(tspan, 6, "timePts");
-  numNodes = mesh.size();
   numTimes = tspan.size();
   numODE = pde.getNumODE();
   numDepVars = pde.getNumPDE();
@@ -101,18 +107,9 @@ pde(pde), options(options)
   totalNumEqns = numFEEqns + numODE;
   dirConsFlagsLeft.resize(numDepVars);
   dirConsFlagsRight.resize(numDepVars);
-  y0.resize(totalNumEqns);
-  MapMat y0FE(y0.data(), numDepVars, numNodes);
-  // get initial conditions
-  RealVector ic(numDepVars);
-  for (int i = 0; i < numNodes; i++) {
-    pde.evalIC(mesh(i), ic);
-    y0FE.col(i) = ic;
-  }
+
   if (numODE) {
     v.resize(numODE);
-    pde.evalODEIC(v);
-    y0.bottomRows(numODE) = v;
     const RealVector &destMesh = pde.getODEMesh();
     meshMapper = std::unique_ptr<PDEMeshMapper>(
     new PDEMeshMapper(mesh, *pdeModel.get(), destMesh));
@@ -126,22 +123,14 @@ pde(pde), options(options)
     odeDuDt.resize(numDepVars, numOdePts);
     odeDuDxDt.resize(numDepVars, numOdePts);
   }
-  // flag dirichlet constraints
-  size_t nm1 = numNodes - 1;
-  RealVector ul = y0FE.col(0), ur = y0FE.col(nm1);
   bc.pl.resize(numDepVars);
   bc.pr.resize(numDepVars);
   bc.ql.resize(numDepVars);
   bc.qr.resize(numDepVars);
-  pde.evalBC(mesh(0), ul, mesh(nm1), ur, tspan(0), v, vDot, bc);
-  for (int i = 0; i < numDepVars; i++) {
-    dirConsFlagsLeft[i] = bc.ql[i] == 0;
-    dirConsFlagsRight[i] = bc.qr[i] == 0;
-  }
 
   size_t numXPts = 1;
   if (options.isVectorized()) {
-    numXPts = numIntPts*(numNodes - 1);
+    numXPts = numIntPts*pdeModel->numElements();
   }
   pdeCoeffs.c.resize(numDepVars, numXPts);
   pdeCoeffs.f.resize(numDepVars, numXPts);
@@ -236,6 +225,23 @@ namespace {
 
 int PDE1dImpl::solveTransient(PDESolution &sol)
 {
+  RealVector y0(totalNumEqns);
+  size_t nnfe = pdeModel->numNodesFEEqns();
+  getFEInitConditions(y0);
+  MapMat y0FE(y0.data(), numDepVars, nnfe);
+  if (numODE) {
+    pde.evalODEIC(v);
+    y0.bottomRows(numODE) = v;
+  }
+  // flag dirichlet constraints
+  const size_t nm1 = nnfe - 1;
+  RealVector ul = y0FE.col(0), ur = y0FE.col(nnfe - 1);
+  pde.evalBC(mesh(0), ul, mesh(mesh.size()-1), ur, tspan(0), v, vDot, bc);
+  for (int i = 0; i < numDepVars; i++) {
+    dirConsFlagsLeft[i] = bc.ql[i] == 0;
+    dirConsFlagsRight[i] = bc.qr[i] == 0;
+  }
+
 #if CALL_TEST_FUNC
   testMats();
 #endif
@@ -256,7 +262,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   double initResNorm = resVec.dot(resVec);
   printf("initResNorm=%12.3e\n", sqrt(initResNorm));
 #endif
-  setAlgVarFlags(up, id);
+  setAlgVarFlags(uu, up, id);
 
   /* Call IDACreate and IDAMalloc to initialize solution */
   ida = IDACreate();
@@ -492,7 +498,7 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
 #endif
 
     // get the coefficients at all integ pts in a single call
-    size_t ne = numNodes - 1;
+    size_t ne = pdeModel->numElements();
     size_t numXPts = numIntPts*ne;
     xPts.resize(numXPts);
     uPts.resize(numDepVars, numXPts);
@@ -612,11 +618,11 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
     R.topRows(numFEEqns) = F - S;
 
   // apply constraints
-  MapMat u2(u.data(), numDepVars, numNodes);
+  const size_t nnfe = pdeModel->numNodesFEEqns();
+  MapMat u2(u.data(), numDepVars, nnfe);
   size_t rightDofOff = numFEEqns - numDepVars;
-  size_t nm1 = numNodes - 1;
-  RealVector ul = u2.col(0), ur = u2.col(nm1);
-  pde.evalBC(mesh(0), ul, mesh(nm1), ur, time, v, vDot, bc);
+  RealVector ul = u2.col(0), ur = u2.col(nnfe-1);
+  pde.evalBC(mesh(0), ul, mesh(mesh.size()-1), ur, time, v, vDot, bc);
   for (int i = 0; i < numDepVars; i++) {
     if (bc.ql(i) != 0) {
       R(i) -= bc.pl(i) / bc.ql(i);
@@ -642,11 +648,11 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
 #endif
   // add odes, if any
   if (numODE) {
-    MapMat f2(F.data(), numDepVars, numNodes);
+    MapMat f2(F.data(), numDepVars, nnfe);
     meshMapper->mapFunction(u2, odeU);
     meshMapper->mapFunctionDer(u2, odeDuDx);
     meshMapper->mapFunctionDer(f2, odeFlux);
-    MapMat up2(up.data(), numDepVars, numNodes);
+    MapMat up2(up.data(), numDepVars, nnfe);
     meshMapper->mapFunction(up2, odeDuDt);
     meshMapper->mapFunctionDer(up2, odeDuDxDt);
     pde.evalODE(time, v, vDot, odeU, odeDuDx, odeFlux, 
@@ -663,7 +669,7 @@ void PDE1dImpl::testMats()
     u(i) = .1*(i+1);
     up(i) = 0;
   }
-#if 1
+#if 0
   RealVector Cxd = RealVector::Zero(numFEEqns);
   RealVector F = RealVector::Zero(numFEEqns);
   RealVector S = RealVector::Zero(numFEEqns);
@@ -683,21 +689,23 @@ void PDE1dImpl::testMats()
   SparseMat jac(numFEEqns, numFEEqns);
   calcJacobian(0, 1, 0, u, up, R, jac);
   cout << "jac\n" << jac.toDense() << endl;
+  calcJacobian(0, 0, 1, u, up, R, jac);
+  cout << "mass matrix\n" << jac.toDense() << endl;
 #endif
   throw PDE1dException("pde1d:testResidual", "test complete.");
 }
 
 
-void PDE1dImpl::setAlgVarFlags(SunVector &y0p, SunVector &id)
+void PDE1dImpl::setAlgVarFlags(SunVector &y0, SunVector &y0p, SunVector &id)
 {
-
-  MapMat y0FE(y0.data(), numDepVars, numNodes);
+  const size_t nnfe = pdeModel->numNodesFEEqns();
+  MapMat y0FE(y0.data(), numDepVars, nnfe);
   
   double t0 = tspan[0];
 
   id.setConstant(1);
   double *iddata = id.data();
-  MapMat idMat(iddata, numDepVars, numNodes);
+  MapMat idMat(iddata, numDepVars, nnfe);
 
   // flag equations where c==0
   double xi[] = { -1, 1 };
@@ -708,9 +716,10 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0p, SunVector &id)
     sf->dNdr(pt, dN.col(i).data());
   }
  
-  duPts.resize(numDepVars, numNodes);
-  size_t nnm1 = numNodes - 1;
-  for(int i = 0; i < numNodes; i++) {
+  const size_t nnMesh = mesh.size();
+  duPts.resize(numDepVars, nnMesh);
+  size_t nnm1 = nnMesh - 1;
+  for (int i = 0; i < nnMesh; i++) {
     double L;
     if (i < nnm1)
       L = mesh(i + 1) - mesh(i);
@@ -726,7 +735,7 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0p, SunVector &id)
 
   size_t numXPts = 1;
   if (options.isVectorized())
-    numXPts = numNodes;
+    numXPts = nnMesh;
   pdeCoeffs.c.resize(numDepVars, numXPts);
   pdeCoeffs.f.resize(numDepVars, numXPts);
   pdeCoeffs.s.resize(numDepVars, numXPts);
@@ -734,7 +743,7 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0p, SunVector &id)
   if (options.isVectorized() && pde.hasVectorPDEEval()) {
     pde.evalPDE(mesh, 0, y0FE, duPts, 
       v, vDot, pdeCoeffs);
-    for (int i = 0; i < numNodes; i++) {
+    for (int i = 0; i < nnMesh; i++) {
       for (int j = 0; j < numDepVars; j++)
         if (pdeCoeffs.c(j,i)==0)
           idMat(j, i) = 0;
@@ -742,7 +751,7 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0p, SunVector &id)
   }
   else {
     RealVector xiV(1);
-    for (int i = 0; i < numNodes; i++) {
+    for (int i = 0; i < nnMesh; i++) {
       double xi = mesh(i);
       const auto &ui = y0FE.col(i);
       const auto &dUiDx = duPts.col(i);
@@ -769,8 +778,9 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0p, SunVector &id)
     SunVector y0Tmp(totalNumEqns);
     y0Tmp = y0;
     calcGlobalEqns(t0, y0Tmp, y0p, Cxd, F, S);
-    MapMat  f2(F.data(), numDepVars, numNodes);
-    MapMat  yp0FE(y0p.data(), numDepVars, numNodes);
+    const size_t nnfe = pdeModel->numNodesFEEqns();
+    MapMat  f2(F.data(), numDepVars, nnfe);
+    MapMat  yp0FE(y0p.data(), numDepVars, nnfe);
     v = y0.bottomRows(numODE);
     vDot = y0p.bottomRows(numODE);
     RealMatrix odeJac = calcODEJacobian(t0, y0FE, yp0FE, f2, v, vDot);
@@ -982,4 +992,57 @@ double PDE1dImpl::calcResidualNorm(double t, SunVector &uu, SunVector &up, SunVe
   MapVec r(&res[0], res.size());
   double rRms = sqrt(r.dot(r));
   return rRms;
+}
+
+void PDE1dImpl::getFEInitConditions(RealVector &y0)
+{
+  size_t nnfe = pdeModel->numNodesFEEqns();
+  MapMat y0FE(y0.data(), numDepVars, nnfe);
+  RealVector ic(numDepVars);
+  const int md = ShapeFunctionHierarchical::MAX_DEGREE;
+  const int mdp1 = md + 1;
+  RealVector xm(mdp1);
+  RealMatrix Nx(mdp1, mdp1), Ux(mdp1, numDepVars), Ui(mdp1, numDepVars);
+  PDEModel::DofList dofs(mdp1);
+  Eigen::PartialPivLU<RealMatrix> lu;
+  int nnLast = 0;
+  int iOff = 0;
+  for (int i = 0; i < pdeModel->numElements(); i++) {
+    const PDEElement &elem = pdeModel->element(i);
+    int nn = elem.numNodes();
+    xm = RealVector::LinSpaced(nn, mesh(i), mesh(i+1));
+    int start = 1;
+    if (!i) start = 0;
+    if (nn == 2) {
+      for (int j = start; j < nn; j++) {
+        pde.evalIC(xm(j), ic);
+        y0FE.col(iOff++) = ic;
+      }
+    }
+    else {   
+      pdeModel->getDofIndicesForElem(i, dofs);  
+      Ux.resize(nn, numDepVars);
+      for (int j = 0; j < nn; j++) {
+        pde.evalIC(xm(j), ic);
+        Ux.row(j) = ic;
+      }
+      //cout << "Ux\n" << Ux << endl;
+      if (nn != nnLast) {
+        Nx.resize(nn, nn);
+        const ShapeFunction &sf = elem.getSF().getShapeFunction();
+        double r = -1, dr = 2. / (double)(nn - 1);
+        for (int j = 0; j < nn; j++) {
+          sf.N(r, Nx.col(j).data());
+          r += dr;
+        }
+        //cout << "Nx\n" << Nx << endl;
+        lu.compute(Nx.transpose());
+        nnLast = nn;
+      }
+      Ui = lu.solve(Ux);
+      //cout << "Ui\n" << Ui << endl;
+      elemToGlobalVec(dofs, Ui.transpose(), y0FE);
+    }
+  }
+  //cout << "y0FE\n" << y0FE << endl;
 }
