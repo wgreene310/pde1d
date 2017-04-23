@@ -113,7 +113,7 @@ void PDEInitConditions::calcShampineAlgo(double t0,
     size_t rnk = qr.rank();
     size_t numAlgVars = numEqns - rnk;
     if(diag)
-      printf("IC: numEqns=%d, rnk=%d, numAlgVars=%d\n",
+      printf("IC: numEqns=%zd, rnk=%zd, numAlgVars=%zd\n",
       numEqns, rnk, numAlgVars);
 
 #if 0

@@ -254,7 +254,7 @@ void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
       std::string funcName = getFuncNameFromHandle(inArgs[0]);
       size_t m = mxGetM(a), n = mxGetN(a);
       sprintf(msg, "In the call to user-defined function:\n\"%s\"\n"
-        "returned entry %d had size (%d x %d) but a vector of size (%d x 1)"
+        "returned entry %d had size (%zd x %zd) but a vector of size (%zd x 1)"
         " was expected.", funcName.c_str(), i + 1, m, n, exLen);
       mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:arglen", msg);
     }
@@ -289,7 +289,7 @@ void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
       std::string funcName = getFuncNameFromHandle(inArgs[0]);
       int m = mxGetM(a), n = mxGetN(a);
       sprintf(msg, "In the call to user-defined function:\n\"%s\"\n"
-        "returned entry %d had size (%d x %d) but a matrix of size (%d x %d)"
+        "returned entry %d had size (%zd x %zd) but a matrix of size (%zd x %zd)"
         " was expected.", funcName.c_str(), i + 1, retRows, retCols, 
         exRows, exCols);
       mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:arglen", msg);

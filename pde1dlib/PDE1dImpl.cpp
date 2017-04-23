@@ -718,19 +718,26 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0, SunVector &y0p, SunVector &id)
  
   const size_t nnMesh = mesh.size();
   duPts.resize(numDepVars, nnMesh);
+  RealMatrix uPts(numDepVars, nnMesh);
   size_t nnm1 = nnMesh - 1;
+  size_t iu = 0;
   for (int i = 0; i < nnMesh; i++) {
     double L;
-    if (i < nnm1)
+    if (i < nnm1) {
       L = mesh(i + 1) - mesh(i);
+    }
     else
       L = mesh(i) - mesh(i - 1);
     double jac = L / 2;
     auto dNdx = dN.col(0) / jac;
-    if (i < nnm1)
-      duPts.col(i) = (y0FE.col(i)*dNdx(0) + y0FE.col(i + 1)*dNdx(1));
+    uPts.col(i) = y0FE.col(iu);
+    if (i < nnm1) {
+      duPts.col(i) = (y0FE.col(iu)*dNdx(0) + y0FE.col(iu + 1)*dNdx(1));
+      int  nen = pdeModel->element(i).numNodes();
+      iu += nen - 1;
+    }
     else
-      duPts.col(i) = (y0FE.col(i-1)*dNdx(0) + y0FE.col(i)*dNdx(1));
+      duPts.col(i) = (y0FE.col(iu-1)*dNdx(0) + y0FE.col(iu)*dNdx(1));
   }
 
   size_t numXPts = 1;
@@ -741,7 +748,7 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0, SunVector &y0p, SunVector &id)
   pdeCoeffs.s.resize(numDepVars, numXPts);
 
   if (options.isVectorized() && pde.hasVectorPDEEval()) {
-    pde.evalPDE(mesh, 0, y0FE, duPts, 
+    pde.evalPDE(mesh, 0, uPts, duPts, 
       v, vDot, pdeCoeffs);
     for (int i = 0; i < nnMesh; i++) {
       for (int j = 0; j < numDepVars; j++)
@@ -753,7 +760,7 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0, SunVector &y0p, SunVector &id)
     RealVector xiV(1);
     for (int i = 0; i < nnMesh; i++) {
       double xi = mesh(i);
-      const auto &ui = y0FE.col(i);
+      const auto &ui = uPts.col(i);
       const auto &dUiDx = duPts.col(i);
       xiV(0) = xi;
       Eigen::Ref<Eigen::VectorXd> cIp = pdeCoeffs.c.col(0);
@@ -963,7 +970,7 @@ void PDE1dImpl::testICCalc(SunVector &uu, SunVector &up, SunVector &res,
     res.getNV(), resFunc, this, dfDy);
   cout << "dfDy\n" << dfDy.toDense() << endl;
   Eigen::FullPivLU<RealMatrix> lu(dfDy.toDense());
-  printf("dfdy: n=%d, rank=%d\n", dfDy.rows(), lu.rank());
+  printf("dfdy: n=%td, rank=%td\n", dfDy.rows(), lu.rank());
 
 #if 0
   fDiffJac->calcJacobian(0, 0, 1, uu.getNV(), up.getNV(), res.getNV(), 
