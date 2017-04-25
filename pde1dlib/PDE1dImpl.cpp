@@ -291,7 +291,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   check_flag(&ier, "IDASetMaxNumSteps", 1);
 #if SUN_USING_SPARSE
   //printf("Using sparse solver.\n");
-  ier = IDAKLU(ida, (int) totalNumEqns, (int) numNonZerosJacMax);
+  ier = IDAKLU(ida, (int) totalNumEqns, (int) numNonZerosJacMax, CSC_MAT);
   check_flag(&ier, "IDAKLU", 1);
   ier = IDASlsSetSparseJacFn(ida, jacFunc);
   check_flag(&ier, "IDASlsSetSparseJacFn", 1);

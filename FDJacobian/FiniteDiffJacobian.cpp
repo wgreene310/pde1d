@@ -110,8 +110,8 @@ void FiniteDiffJacobian::calcJacobian(double tres, double alpha,
   // copy the row and column pointers
   indrow.array() -= 1;
   jpntr.array() -= 1;
-  std::copy_n(jpntr.data(), neq + 1, jac->colptrs);
-  std::copy_n(indrow.data(), nnz, jac->rowvals);
+  std::copy_n(jpntr.data(), neq + 1, jac->indexptrs);
+  std::copy_n(indrow.data(), nnz, jac->indexvals);
   indrow.array() += 1;
   jpntr.array() += 1;
 }
@@ -180,8 +180,8 @@ void FiniteDiffJacobian::calcJacobianCD(double tres, double alpha,
   // copy the row and column pointers
   indrow.array() -= 1;
   jpntr.array() -= 1;
-  std::copy_n(jpntr.data(), neq + 1, jac->colptrs);
-  std::copy_n(indrow.data(), nnz, jac->rowvals);
+  std::copy_n(jpntr.data(), neq + 1, jac->indexptrs);
+  std::copy_n(indrow.data(), nnz, jac->indexvals);
   indrow.array() += 1;
   jpntr.array() += 1;
 }
