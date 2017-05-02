@@ -46,9 +46,9 @@ public:
   virtual void evalPDE(const RealVector &x, double t,
     const RealMatrix &u, const RealMatrix &DuDx, 
     const RealVector &v, const RealVector &vDot, PDECoeff &pde);
-  virtual RealVector getMesh();
+  virtual const RealVector &getMesh() const;
   virtual const RealVector &getODEMesh();
-  virtual RealVector getTimeSpan();
+  virtual const RealVector &getTimeSpan() const;
   void setODEDefn(const mxArray *odeFun, const mxArray *icFun,
     const mxArray *odeMesh);
   virtual int getNumODE() const { return numODE; }
@@ -64,7 +64,7 @@ private:
   }
   template<class T>
   static void setMxImpl(const T &ea, mxArray *a) {
-    int vr = ea.rows(), vc = ea.cols(), s = ea.size();
+    size_t vr = ea.rows(), vc = ea.cols(), s = ea.size();
     if (vr != mxGetM(a) || vc != mxGetN(a)) {
       double *pr = (double*)mxRealloc(mxGetPr(a), s*sizeof(double));
       mxSetM(a, vr);

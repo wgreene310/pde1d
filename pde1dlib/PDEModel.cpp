@@ -44,3 +44,11 @@ void PDEModel::getDofIndicesForElem(int elemIndex,
   for (int i = 2; i < nn; i++)
     dofs[i] = ++d;
 }
+
+void PDEModel::globalToElemVec(const PDEModel::DofList &eDofs, 
+  const RealMatrix &ug, RealMatrix &ue) {
+  size_t n = eDofs.size();
+  ue.resize(ue.rows(), n);
+  for (size_t i = 0; i < n; i++)
+    ue.col(i) = ug.col(eDofs[i]);
+}

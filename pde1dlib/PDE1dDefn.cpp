@@ -16,6 +16,7 @@
 #include "PDE1dDefn.h"
 #include "PDE1dImpl.h"
 #include "PDE1dOptions.h"
+#include "PDESolution.h"
 
 
 PDE1dDefn::PDE1dDefn()
@@ -26,7 +27,7 @@ PDESolution pde1d(PDE1dDefn &pde)
 {
   PDE1dOptions options;
   PDE1dImpl pdeImpl(pde, options);
-  PDESolution sol;
+  PDESolution sol(pde, pdeImpl.getModel(), options.getViewMesh());
   int err = pdeImpl.solveTransient(sol);
   return sol;
 }

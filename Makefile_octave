@@ -12,8 +12,10 @@ ifeq ($(findstring Windows, $(OS)),Windows)
 	BOOST_ROOT=C:/boost/boost_1_57_0
 	OCTAVE_ROOT=c:/Octave/Octave-$(REL)
 	OCTAVE_INC=$(OCTAVE_ROOT)/include/octave-$(REL)/octave
-	SUNDIALS_ROOT=$(HOME)/src/sundials-2.6.2/
-	SUNDIALS_INC=-I$(SUNDIALS_ROOT)/include -I./ -Ic:/wgreene/tests/c++/sundialsExamples/pde1dmex_mingw
+	#SUNDIALS_ROOT=$(HOME)/src/sundials-2.6.2/
+	SUNDIALS_ROOT=$(HOME)/src/sundials-2.7.0/
+	#SUNDIALS_INC=-I$(SUNDIALS_ROOT)/include -I./ -Ic:/wgreene/tests/c++/sundialsExamples/pde1dmex_mingw
+	SUNDIALS_INC=-I$(SUNDIALS_ROOT)/include
 	LIB_OCT=-L$(OCTAVE_ROOT)/lib/octave/$(REL) -loctave.dll -loctinterp.dll
 	ifdef WIN64
 	  SUITESPARSE_LIB_DIR = $(HOME)/src/sparse_solvers/SuiteSparse/libs/mingw64

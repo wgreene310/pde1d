@@ -26,6 +26,7 @@ public:
     ICMethod = 0;
     ICDiagnostics = 0;
     polyOrder = 1;
+    viewMesh = 1;
   }
   double getRelTol() const { return relTol;  }
   double getAbsTol() const { return absTol;  }
@@ -44,7 +45,11 @@ public:
   void setPolyOrder(int pOrder) { polyOrder = pOrder;  }
   int getPolyOrder() const {
     return polyOrder;
-  }   
+  } 
+  void setViewMesh(int intVUMesh) { viewMesh = intVUMesh; }
+  int getViewMesh() const {
+    return viewMesh;
+  }
 private:
   double relTol, absTol;
   bool vectorizedFuncs;
@@ -53,6 +58,7 @@ private:
   int ICMethod;
   int ICDiagnostics;
   int polyOrder;
+  int viewMesh;
 };
 
 #endif

@@ -220,7 +220,7 @@ void PDE1dMexInt::evalODE(double t, const RealVector &v,
   callMatlab(funcInp, nargin, outArgs, nargout);
 }
 
-RealVector PDE1dMexInt::getMesh() {
+const RealVector &PDE1dMexInt::getMesh() const {
   return mesh;
 }
 
@@ -229,7 +229,7 @@ const RealVector &PDE1dMexInt::getODEMesh()
   return odeMeshVec;
 }
 
-RealVector PDE1dMexInt::getTimeSpan() { return tSpan; }
+const RealVector &PDE1dMexInt::getTimeSpan() const { return tSpan; }
 
 void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
   RealVector *outArgs[], int nargout)

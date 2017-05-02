@@ -2,6 +2,8 @@
 
 #include <MatrixTypes.h>
 
+class PDESolution;
+
 class PDE1dDefn
 {
 public:
@@ -22,8 +24,8 @@ public:
   virtual void evalPDE(double x, double t, 
     const RealVector &u, const RealVector &DuDx, 
     const RealVector &v, const RealVector &vDot, PDE &pde) = 0;
-  virtual RealVector getMesh() = 0;
-  virtual RealVector getTimeSpan() = 0;
+  virtual const RealVector &getMesh() const = 0;
+  virtual const RealVector &getTimeSpan() const = 0;
   virtual bool hasVectorPDEEval() const { return false;  }
   struct PDECoeff {
     RealMatrix c, f, s;
@@ -43,12 +45,6 @@ public:
   virtual const RealVector &getODEMesh() = 0;
 };
 
-struct PDESolution {
-  PDESolution(int nx=1, int nt=1) {}
-  RealMatrix u;
-  RealMatrix uOde;
-  RealVector time;
-};
-
 PDESolution pde1d(PDE1dDefn &pde);
+
 

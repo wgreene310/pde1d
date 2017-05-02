@@ -52,6 +52,9 @@ public:
   const RealVector &getTimePoints() const {
     return tspan;
   }
+  const PDEModel &getModel() const {
+    return *pdeModel;
+  }
   void testMats();
 private:
   void calcGlobalEqns(double t, SunVector &u, SunVector &up, 
@@ -71,6 +74,9 @@ private:
     SunVector &id, double tf);
   double calcResidualNorm(double t, SunVector &uu, SunVector &up, SunVector &res);
   void getFEInitConditions(RealVector &y0);
+  template<class T>
+  void interpolateGlobalVecToViewMesh(const T &gVec,
+    RealMatrix &viewVec);
   PDE1dDefn &pde;
   PDE1dOptions &options;
   RealVector mesh, tspan;
@@ -93,6 +99,7 @@ private:
   std::unique_ptr<PDEModel> pdeModel;
   RealVector v, vDot, odeF;
   RealMatrix odeU, odeDuDx, odeFlux, odeDuDt, odeDuDxDt;
+  size_t numViewElemsPerElem;
 };
 
 #define FUNC_NAME "pde1d"

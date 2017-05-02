@@ -15,6 +15,9 @@
 
 #include <stdio.h>
 #include <stdexcept>
+#include <iostream>
+using std::cout;
+using std::endl;
 
 #include <boost/multi_array.hpp>
 #include <boost/algorithm/string.hpp>
@@ -25,6 +28,7 @@
 #include "PDE1dMexInt.h"
 #include "PDE1dImpl.h"
 #include "PDE1dOptions.h"
+#include "PDESolution.h"
 #include "PDE1dException.h"
 #include "PDE1dWarningMsg.h"
 
@@ -98,6 +102,10 @@ namespace {
         int porder = (int)mxGetScalar(val);
         pdeOpts.setPolyOrder(porder);
       }
+      else if (boost::iequals(ni, "viewmesh")) {
+        int vumesh = (int)mxGetScalar(val);
+        pdeOpts.setViewMesh(vumesh);
+      }
       else {
         char msg[1024];
         sprintf(msg, "The options argument contains the field \"%s\".\n"
@@ -125,10 +133,7 @@ void PDE1dWarningMsg(const char *id, const char *msg) {
 void mexFunction(int nlhs, mxArray*
   plhs[], int nrhs, const mxArray *prhs[])
 {
-  PDESolution pdeSol;
-  int numPde = 0, numPts = 0, numOde = 0;
   try {
-
     //printf("nlhs=%d, nrhs=%d\n", nlhs, nrhs); return;
     int optsArg = -1;
     if (nrhs == 7)
@@ -160,7 +165,8 @@ void mexFunction(int nlhs, mxArray*
       }
     }
 
-    const mxArray *pX = prhs[4], *pT = prhs[5];
+    const mxArray *pX = prhs[4];
+    const mxArray *pT = prhs[5];
     if (!mxIsNumeric(pX) || mxIsComplex(pX))
       mexErrMsgIdAndTxt("pde1d:mesh_type",
       "Argument \"meshPts\" must be a real vector.");
@@ -194,13 +200,65 @@ void mexFunction(int nlhs, mxArray*
         mexErrMsgIdAndTxt("pde1d:nlhs",
         "pde1d returns only a single matrix when there are no ODEs.");
     }
-    numPde = pde.getNumPDE();
-    numPts = pde.numNodes();
-    numOde = pde.getNumODE();
+    int numPde = pde.getNumPDE();
+    int numOde = pde.getNumODE();
     PDE1dImpl pdeImpl(pde, opts);
+    int viewMesh = opts.getViewMesh();
+    PDESolution pdeSol(pde, pdeImpl.getModel(), viewMesh);
     int err = pdeImpl.solveTransient(pdeSol);
     if (err)
       return;
+
+    int numTimes = pdeSol.numTimePoints();
+    int numPts = pdeSol.numSpatialPoints();
+#if 0
+    printf("numTimes=%d, numPde=%d, numPts=%d\n",
+    numTimes, numPde, numPts);
+    pdeSol.print();
+#endif
+    mxArray *sol;
+    if (numPde > 1) {
+      int ndims, dims[] = { numTimes, numPts, numPde };
+      ndims = 3;
+      typedef boost::const_multi_array_ref<double, 3> Matrix3;
+      boost::array<Matrix3::index, 3> shape =
+      { { numTimes, numPde, numPts } };
+      Matrix3 sol3(pdeSol.getSolution().data(), shape, boost::fortran_storage_order());
+      sol = mxCreateNumericArray(ndims, dims, mxDOUBLE_CLASS, mxREAL);
+      double *p = mxGetPr(sol);
+      for (int k = 0; k < numPde; k++) {
+        for (int j = 0; j < numPts; j++) {
+          for (int i = 0; i < numTimes; i++) {
+            *p++ = sol3[i][k][j];
+          }
+        }
+      }
+    }
+    else {
+      sol = mxCreateDoubleMatrix(numTimes, numPts, mxREAL);
+      std::copy_n(pdeSol.getSolution().data(), numTimes*numPts*numPde, mxGetPr(sol));
+    }
+
+    if (viewMesh > 1) {
+      // return struct for results on a view mesh
+      const char *fieldNames[] = { "x", "u", "uOde" };
+      int numFields = 2;
+      if (numOde)
+        numFields++;
+      mxArray *solStruc = mxCreateStructMatrix(1, 1, numFields, &fieldNames[0]);
+      mxSetField(solStruc, 0, "x", MexInterface::toMxArray(pdeSol.getX().transpose()));
+      mxSetField(solStruc, 0, "u", sol);
+      if (numOde)
+        mxSetField(solStruc, 0, "uOde", MexInterface::toMxArray(pdeSol.uOde));
+      plhs[0] = solStruc;
+    }
+    else {
+      plhs[0] = sol;
+      // odes are included
+      if (nlhs == 2)
+        plhs[1] = MexInterface::toMxArray(pdeSol.uOde);
+    }
+
   }
   catch (const PDE1dException &ex) {
     mexErrMsgIdAndTxt(ex.getId(), ex.what());
@@ -213,36 +271,5 @@ void mexFunction(int nlhs, mxArray*
   }
   //mexPrintf("%d %d %d\n", pdeSol.time.size(), 
   //  pdeSol.u.rows(), pdeSol.u.cols());
-
-  int numTimes = pdeSol.u.rows();
-  /* mexPrintf("numTimes=%d, numPde=%d, numPts=%d\n",
-     numTimes, numPde, numPts);*/
-  mxArray *sol;
-  if (numPde > 1) {
-    int ndims, dims[] = { numTimes, numPts, numPde };
-    ndims = 3;
-    typedef boost::multi_array_ref<double, 3> Matrix3;
-    boost::array<Matrix3::index, 3> shape =
-    { { numTimes, numPde, numPts } };
-    Matrix3 sol3(pdeSol.u.data(), shape, boost::fortran_storage_order());
-    sol = mxCreateNumericArray(ndims, dims, mxDOUBLE_CLASS, mxREAL);
-    double *p = mxGetPr(sol);
-    for (int k = 0; k < numPde; k++) {
-      for (int j = 0; j < numPts; j++) {
-        for (int i = 0; i < numTimes; i++) {
-          *p++ = sol3[i][k][j];
-        }
-      }
-    }
-  }
-  else {
-    sol = mxCreateDoubleMatrix(numTimes, numPts, mxREAL);
-    std::copy_n(pdeSol.u.data(), numTimes*numPts*numPde, mxGetPr(sol));
-  }
-
-  plhs[0] = sol;
-  // odes are included
-  if (nlhs == 2)
-    plhs[1] = MexInterface::toMxArray(pdeSol.uOde);
 
 }
