@@ -66,6 +66,8 @@ pde(pde), options(options)
   ida = 0;
   polyOrder = options.getPolyOrder();
   numIntPts = GausLegendreIntRule::getNumPtsForPolyOrder(2 * polyOrder);
+  //numIntPts = 1; // TESTING!!
+  //cout << "numIntPts=" << numIntPts << endl;
   mesh = pde.getMesh();
   checkIncreasing(mesh, 5, "meshPts");
   tspan = pde.getTimeSpan();
@@ -216,8 +218,8 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   }
 
 #if CALL_TEST_FUNC
-  //testMats();
-  sol.setSolutionVector(0, 0, y0);
+  testMats();
+  //sol.setSolutionVector(0, 0, y0);
   return 0;
 #endif
   //sol.time.resize(numTimes);
@@ -323,13 +325,13 @@ void PDE1dImpl::calcGlobalEqns(double time, SunVector &u, SunVector &up,
 {
   Cxd.setZero(); F.setZero(); S.setZero();
   if (options.isVectorized() && pde.hasVectorPDEEval())
-    calcGlobalEqnsVec(time, u, up, Cxd, F, S);
+    calcGlobalEqnsVectorized(time, u, up, Cxd, F, S);
   else
-    calcGlobalEqnsScalar(time, u, up, Cxd, F, S);
+    calcGlobalEqnsNonVectorized(time, u, up, Cxd, F, S);
 }
 
 template<class T, class TR>
-void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
+void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
   TR &Cxd, TR &F, TR &S)
 {
   const ShapeFunctionManager::EvaluatedSF &esf =
@@ -438,7 +440,7 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
 }
 
   template<class T, class TR>
-  void PDE1dImpl::calcGlobalEqnsVec(double t, T &u, T &up,
+  void PDE1dImpl::calcGlobalEqnsVectorized(double t, T &u, T &up,
     TR &Cxd, TR &F, TR &S)
   {
     const ShapeFunctionManager::EvaluatedSF &esf =
@@ -593,6 +595,7 @@ void PDE1dImpl::calcGlobalEqnsScalar(double t, T &u, T &up,
   pde.evalBC(mesh(0), ul, mesh(mesh.size()-1), ur, time, v, vDot, bc);
   for (int i = 0; i < numDepVars; i++) {
     if (bc.ql(i) != 0) {
+      //printf("bc: i=%d, ql=%f, pl=%f\n", i, bc.ql(i), bc.pl(i));
       R(i) -= bc.pl(i) / bc.ql(i);
     }
     else {
@@ -637,7 +640,8 @@ void PDE1dImpl::testMats()
     u(i) = .1*(i+1);
     up(i) = 0;
   }
-#if 0
+#if 1
+  cout << "u=" << u.transpose() << endl;
   RealVector Cxd = RealVector::Zero(numFEEqns);
   RealVector F = RealVector::Zero(numFEEqns);
   RealVector S = RealVector::Zero(numFEEqns);
@@ -645,18 +649,20 @@ void PDE1dImpl::testMats()
   cout << "Cxd=" << Cxd.transpose() << endl;
   cout << "F=" << F.transpose() << endl;
   cout << "S=" << S.transpose() << endl;
-#if 0
-  RealVector R = RealVector::Zero(numFEMEqns);
+#if 1
+  R.setZero();
   calcRHSODE(0, u, up, R);
 #else
   R = S - F;
 #endif
   cout << "R\n" << R.transpose() << endl;
 #endif
-#if 1
+#if 0
   SparseMat jac(numFEEqns, numFEEqns);
   calcJacobian(0, 1, 0, u, up, R, jac);
   cout << "jac\n" << jac.toDense() << endl;
+#endif
+#if 0
   calcJacobian(0, 0, 1, u, up, R, jac);
   cout << "mass matrix\n" << jac.toDense() << endl;
 #endif

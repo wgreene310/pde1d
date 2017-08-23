@@ -60,6 +60,13 @@ public:
     RealVector &f);
 private:
   static void setScalar(double x, mxArray *a) {
+    const int vr = 1, vc = 1;
+    if (vr != mxGetM(a) || vc != mxGetN(a)) {
+      double *pr = (double*)mxRealloc(mxGetPr(a), sizeof(double));
+      mxSetM(a, vr);
+      mxSetN(a, vc);
+      mxSetPr(a, pr);
+    }
     double *p = mxGetPr(a); p[0] = x;
   }
   template<class T>

@@ -10,6 +10,11 @@
 
 using std::cout;
 using std::endl;
+#if 0
+#define EIGEN_USE_LAPACKE 1
+#define lapack_complex_float std::complex<float>
+#define lapack_complex_double std::complex<double>
+#endif
 
 #include <Eigen/QR>
 
@@ -22,6 +27,21 @@ using std::endl;
 #include "PDE1dException.h"
 #include "PDE1dWarningMsg.h"
 #include "util.h"
+
+#define USE_LAPACK_QR 0
+
+#if USE_LAPACK_QR
+extern "C" {
+  void dgeqp3_(const int *M, const int *N, double *A,
+    const int *LDA, int *JPVT, double *TAU, double *WORK,
+    const int *LWORK, int *INFO);
+  void dormqr_(const char *SIDE, const char *TRANS, const int *M, const int *N, const int *K, double *A,
+    const int *LDA, double *TAU, double *C, const int *LDC, double *WORK,
+    int *LWORK, int &INFO);
+  void dtrsm_(const char *SIDE, const char *UPLO, const char *TRANSA, const char *DIAG, const int *M, const int *N,
+    const double *ALPHA, double *A, const int *LDA, double *B, const int *LDB);
+}
+#endif
 
 
 PDEInitConditions::PDEInitConditions(void *idaMem, PDE1dImpl &pdeImpl,
@@ -58,6 +78,7 @@ void PDEInitConditions::calcShampineAlgo(double t0,
 {
   const size_t numEqns = u0.rows();
   SparseMat dfDy(numEqns, numEqns), dfDyp(numEqns, numEqns);
+  Eigen::MatrixXd dfDypDense(numEqns, numEqns);
   const int maxIter = 10;
   RealVector dy(numEqns), dyp(numEqns), dypP(numEqns);
   SunVector res(numEqns);
@@ -71,6 +92,8 @@ void PDEInitConditions::calcShampineAlgo(double t0,
     cout << "u0=" << yNew.transpose() << endl;
     cout << "up0=" << ypNew.transpose() << endl;
   }
+  double absTol = pdeImpl.getOptions().getAbsTol();
+  Eigen::ColPivHouseholderQR<RealMatrix> qr;
   while (it++ < maxIter) {
     pdeImpl.calcRHSODE(t0, yNew, ypNew, res);
 #if 1
@@ -78,7 +101,7 @@ void PDEInitConditions::calcShampineAlgo(double t0,
     double resRms = sqrt(res.dot(res)) / (double)numEqns;
     if (diag)
       printf("IC: iter = %d, resRms=%12.3e\n", it, resRms);
-    if (resRms < pdeImpl.getOptions().getAbsTol()) {
+    if (resRms < absTol) {
       converged = true;
       break;
     }
@@ -106,8 +129,10 @@ void PDEInitConditions::calcShampineAlgo(double t0,
 #if 0
     SparseQR qr(dfDyp);
 #else
-    Eigen::ColPivHouseholderQR<RealMatrix> qr(dfDyp.toDense());
+    dfDypDense = dfDyp.toDense();
+    qr.compute(dfDypDense);
 #endif
+
     RealVector d = -(qr.matrixQ().transpose()*res);
     RealMatrix S = qr.matrixQ().transpose()*dfDy.toDense();
     size_t rnk = qr.rank();
@@ -137,6 +162,37 @@ void PDEInitConditions::calcShampineAlgo(double t0,
     dyp = qr.colsPermutation()*dypP;
     if (diag>1)
       cout << "dyp=" << dyp.transpose() << endl;
+
+#if USE_LAPACK_QR
+    const int nInt = (int)numEqns;
+    int info = 0;
+    Eigen::VectorXi jpiv(nInt);
+    jpiv.setZero();
+    const int nb = 64;
+    int lwork = static_cast<int>(2 * numEqns + (numEqns + 1)*nb);
+    Eigen::VectorXd tau(numEqns), work(lwork);
+#if 1
+    dgeqp3_(&nInt, &nInt, dfDypDense.data(), &nInt, jpiv.data(),
+      tau.data(), work.data(), &lwork, &info);
+#endif
+    cout << "info=" << info << endl;
+    cout << "jpiv=" << jpiv.transpose() << endl;
+    Eigen::VectorXd rii = dfDypDense.diagonal();
+    cout << "rii=" << rii.transpose() << endl;
+    double tol = absTol*abs(rii(0));
+    int rankLap = 1;
+    for (int i = 1; i < numEqns; i++) {
+      if (abs(rii(i)) < tol) break;
+      rankLap++;
+    }
+    cout << "rankLap=" << rankLap << endl;
+    int nrhs = 1;
+#if 0
+    dormqr_("L", "T", &nInt, &nrhs, &nInt, dfDypDense.data(), &nInt, tau.data(),
+      b.data(), &m, work.data(), &lwork, info);
+#endif
+    cout << "info=" << info << endl;
+#endif
 
     yNew += dy;
     ypNew += dyp;

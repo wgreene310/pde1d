@@ -60,9 +60,9 @@ private:
   void calcGlobalEqns(double t, SunVector &u, SunVector &up, 
     RealVector &Cxd, RealVector &F, RealVector &S);
   template<class T, class TR>
-  void calcGlobalEqnsScalar(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
+  void calcGlobalEqnsNonVectorized(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
   template<class T, class TR>
-  void calcGlobalEqnsVec(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
+  void calcGlobalEqnsVectorized(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
   void setAlgVarFlags(SunVector &y0, SunVector &y0p, SunVector &id);
   RealMatrix calcODEJacobian(double time, const RealMatrix &yFE, 
     const RealMatrix &ypFE, const RealMatrix &r2, RealVector &v, RealVector &vdot);
