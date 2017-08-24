@@ -106,6 +106,20 @@ namespace {
         int vumesh = (int)mxGetScalar(val);
         pdeOpts.setViewMesh(vumesh);
       }
+      else if (boost::iequals(ni, "diagonalMassMatrix")) {
+        const int buflen = 1024;
+        char buf[buflen];
+        mxGetString(val, buf, buflen);
+        bool useDiagMassMat;
+        if (boost::iequals(buf, "on"))
+          useDiagMassMat = true;
+        else if (boost::iequals(buf, "off"))
+          useDiagMassMat = false;
+        else
+          mexErrMsgIdAndTxt("pde1d:invalidMassMat",
+            "The value of the \"diagonalMassMatrix\" option must be either \"On\" or \"Off\".");
+        pdeOpts.setDiagMassMat(useDiagMassMat);
+      }
       else {
         char msg[1024];
         sprintf(msg, "The options argument contains the field \"%s\".\n"

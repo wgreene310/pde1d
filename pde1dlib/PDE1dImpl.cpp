@@ -122,6 +122,7 @@ pde(pde), options(options)
   finiteDiffJacobian = 
     std::unique_ptr<FiniteDiffJacobian>(new FiniteDiffJacobian(P));
   numViewElemsPerElem=options.getViewMesh();
+
 }
 
 PDE1dImpl::~PDE1dImpl()
@@ -334,6 +335,7 @@ template<class T, class TR>
 void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
   TR &Cxd, TR &F, TR &S)
 {
+  bool useDiagMassMat = options.getDiagMassMat();
   const ShapeFunctionManager::EvaluatedSF &esf =
     sfm->getShapeFunction(polyOrder);
   const RealMatrix &N = esf.N();
@@ -363,6 +365,7 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
   pdeCoeffs.s.resize(numDepVars, 1);
 
   RealMatrix eCMat = RealMatrix::Zero(numElemEqns, numElemEqns);
+  Eigen::DiagonalMatrix<double, Eigen::Dynamic> eCMatD(numElemEqns);
   RealVector eF = RealVector::Zero(numElemEqns);
   RealVector eS = RealVector::Zero(numElemEqns);
   RealVector eC = RealVector::Zero(numElemEqns);
@@ -373,6 +376,7 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
   RealVector xiV(1);
   PDEModel::DofList eDofs(nen);
 
+
   RealVector &x = mesh;
   size_t ne = pdeModel->numElements();
   for (int e = 0; e < ne; e++) {
@@ -380,7 +384,10 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
     pdeModel->getDofIndicesForElem(e, eDofs);
     PDEModel::globalToElemVec(eDofs, u2, u2e);
     PDEModel::globalToElemVec(eDofs, up2, up2e);
-    eCMat.setZero();
+    if (useDiagMassMat)
+      eCMatD.setZero();
+    else
+      eCMat.setZero();
     eF.setZero();
     eS.setZero();
     double L = x(e + 1) - x(e);
@@ -409,7 +416,11 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
       fIp *= xm;
  
       for (int j = 0; j < numDepVars; j++) {
-        eCj  = N.col(i)*cIp(j)*N.col(i).transpose()*jacWt;
+        double eCjd;
+        if (useDiagMassMat)
+          eCjd = cIp(j)*jacWt/ (double) nen; // lump mass
+        else
+          eCj  = N.col(i)*cIp(j)*N.col(i).transpose()*jacWt;
         //eCMat += eCj;
         eFj = dNdx*fIp(j)*jacWt;
         //eF += eFj;
@@ -419,9 +430,13 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
           size_t kk = j + k*numDepVars;
           eF(kk) += eFj(k);
           eS(kk) += eSj(k);
-          for (int l = 0; l < nen; l++) {
-            size_t ll = j + l*numDepVars;
-            eCMat(kk, ll) += eCj(k, l);
+          if (useDiagMassMat)
+            eCMatD.diagonal()(kk) += eCjd;
+          else {
+            for (int l = 0; l < nen; l++) {
+              size_t ll = j + l*numDepVars;
+              eCMat(kk, ll) += eCj(k, l);
+            }
           }
         }
       }
@@ -430,7 +445,10 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
     cout << "eF: " << eF.transpose() << endl;
     cout << "eCMat\n" << eCMat << endl;
 #endif
-    eC = eCMat*eUp;
+    if (useDiagMassMat)
+      eC = eCMatD*eUp;
+    else
+      eC = eCMat*eUp;
     PDEModel::assembleElemVec(eDofs, nnfee, numDepVars, eC, Cxd);
     //cout << "eF=" << eF.transpose() << endl;
     PDEModel::assembleElemVec(eDofs, nnfee, numDepVars, eF, F);
@@ -443,6 +461,7 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
   void PDE1dImpl::calcGlobalEqnsVectorized(double t, T &u, T &up,
     TR &Cxd, TR &F, TR &S)
   {
+    bool useDiagMassMat = options.getDiagMassMat();
     const ShapeFunctionManager::EvaluatedSF &esf =
       sfm->getShapeFunction(polyOrder);
     const RealMatrix &N = esf.N();
@@ -500,6 +519,7 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
     pde.evalPDE(xPts, t, uPts, duPts, v, vDot, pdeCoeffs);
 
     RealMatrix eCMat = RealMatrix::Zero(numElemEqns, numElemEqns);
+    Eigen::DiagonalMatrix<double, Eigen::Dynamic> eCMatD(numElemEqns);
     RealVector eF = RealVector::Zero(numElemEqns);
     RealVector eS = RealVector::Zero(numElemEqns);
     RealVector eC = RealVector::Zero(numElemEqns);
@@ -516,7 +536,10 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
       const PDEElement &elem = pdeModel->element(e);
       pdeModel->getDofIndicesForElem(e, eDofs);
       PDEModel::globalToElemVec(eDofs, up2, up2e);
-      eCMat.setZero();
+      if (useDiagMassMat)
+        eCMatD.setZero();
+      else
+        eCMat.setZero();
       eF.setZero();
       eS.setZero();
       double L = x(e + 1) - x(e);
@@ -540,7 +563,11 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
         fIp *= xm;
 
         for (int j = 0; j < numDepVars; j++) {
-          eCj = N.col(i)*cIp(j)*N.col(i).transpose()*jacWt;
+          double eCjd;
+          if (useDiagMassMat)
+            eCjd = cIp(j)*jacWt / (double)nen; // lump mass
+          else
+            eCj = N.col(i)*cIp(j)*N.col(i).transpose()*jacWt;
           //eCMat += eCj;
           eFj = dNdx*fIp(j)*jacWt;
           //eF += eFj;
@@ -550,9 +577,13 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
             size_t kk = j + k*numDepVars;
             eF(kk) += eFj(k);
             eS(kk) += eSj(k);
-            for (int l = 0; l < nen; l++) {
-              size_t ll = j + l*numDepVars;
-              eCMat(kk, ll) += eCj(k, l);
+            if (useDiagMassMat)
+              eCMatD.diagonal()(kk) += eCjd;
+            else {
+              for (int l = 0; l < nen; l++) {
+                size_t ll = j + l*numDepVars;
+                eCMat(kk, ll) += eCj(k, l);
+              }
             }
           }
         }
@@ -562,7 +593,10 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
       cout << "eF: " << eF.transpose() << endl;
       cout << "eCMat\n" << eCMat << endl;
 #endif
-      eC = eCMat*eUp;
+      if (useDiagMassMat)
+        eC = eCMatD*eUp;
+      else
+        eC = eCMat*eUp;
       PDEModel::assembleElemVec(eDofs, nnfee, numDepVars, eC, Cxd);
       //cout << "eF=" << eF.transpose() << endl;
       PDEModel::assembleElemVec(eDofs, nnfee, numDepVars, eF, F);
@@ -637,8 +671,8 @@ void PDE1dImpl::testMats()
   cout << "numFEEqns=" << numFEEqns << endl;
   SunVector u(numFEEqns), up(numFEEqns), R(numFEEqns);
   for (int i = 0; i < numFEEqns; i++) {
-    u(i) = .1*(i+1);
-    up(i) = 0;
+    u(i) = 0;
+    up(i) = 1;
   }
 #if 1
   cout << "u=" << u.transpose() << endl;

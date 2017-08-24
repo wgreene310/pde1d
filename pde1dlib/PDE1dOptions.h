@@ -27,6 +27,7 @@ public:
     ICDiagnostics = 0;
     polyOrder = 1;
     viewMesh = 1;
+    useDiagMassMat = false;
   }
   double getRelTol() const { return relTol;  }
   double getAbsTol() const { return absTol;  }
@@ -50,6 +51,12 @@ public:
   int getViewMesh() const {
     return viewMesh;
   }
+  void setDiagMassMat(bool useDiagMassMat) {
+    this->useDiagMassMat = useDiagMassMat;
+  }
+  bool getDiagMassMat() const {
+    return useDiagMassMat;
+  }
 private:
   double relTol, absTol;
   bool vectorizedFuncs;
@@ -59,6 +66,7 @@ private:
   int ICDiagnostics;
   int polyOrder;
   int viewMesh;
+  bool useDiagMassMat;
 };
 
 #endif
