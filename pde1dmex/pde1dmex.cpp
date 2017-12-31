@@ -232,7 +232,7 @@ void mexFunction(int nlhs, mxArray*
 #endif
     mxArray *sol;
     if (numPde > 1) {
-      int ndims, dims[] = { numTimes, numPts, numPde };
+      mwSize ndims, dims[] = { numTimes, numPts, numPde };
       ndims = 3;
       typedef boost::const_multi_array_ref<double, 3> Matrix3;
       boost::array<Matrix3::index, 3> shape =

@@ -2,6 +2,10 @@ cmake_minimum_required (VERSION 2.6)
 
 project(pde1d)
 SET( CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE )
+cmake_policy(SET CMP0008 NEW)
+
+set(PSE "Octave" CACHE STRING "Problem solving environment")
+set_property(CACHE PSE PROPERTY STRINGS Octave MATLAB)
 
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
 if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 19)
@@ -10,27 +14,32 @@ else()
  set(VC_VER 12)
 endif()
 add_compile_options("/wd4996")
+add_definitions(-DNOMINMAX)
 endif()
 
-set(EIGEN_ROOT $ENV{HOME}/src/Eigen/eigen-3.3)
+set(EIGEN_ROOT "$ENV{HOME}/src/Eigen/eigen-3.3" 
+    CACHE FILEPATH "Path to Eigen library")
 include_directories(${EIGEN_ROOT})
 
 # suitesparse to get KLU for sundials ida
-set(SUITESPARSE_LIB_DIR $ENV{HOME}/src/sparse_solvers/SuiteSparse/libs/x64)
+set(SUITESPARSE_LIB_DIR "$ENV{HOME}/src/sparse_solvers/SuiteSparse/libs/x64"
+    CACHE FILEPATH "Path to Suitesparse libraries"
+)
 set(SUITESPARSE_LIBS 
-libklu.lib
-libamd.lib
-libcolamd.lib
-libbtf.lib
-suitesparseconfig.lib)
+libklu
+libamd
+libcolamd
+libbtf
+suitesparseconfig)
 
 # sundials ida
-set(SUNDIALS_ROOT C:/temp/sundials_2.7_vs2015_x64)
+set(SUNDIALS_ROOT "C:/temp/sundials_2.7_vs2015_x64"
+    CACHE FILEPATH "Path to Sundials"
+)
 set(SUNDIALS_LIB_DIR ${SUNDIALS_ROOT}/lib)
 set(SUNDIALS_LIBS
-sundials_ida.lib
-sundials_kinsol.lib
-sundials_nvecserial.lib)
+sundials_ida
+sundials_nvecserial)
 include_directories(${SUNDIALS_ROOT}/include)
 
 set(BOOST_ROOT c:/boost)
@@ -41,20 +50,30 @@ find_package( Boost 1.63.0 EXACT REQUIRED )
 #include_directories(${Boost_INCLUDE_DIRS}/boost/tr1/tr1)
 include_directories(${Boost_INCLUDE_DIRS})
 
+if(${PSE} STREQUAL Octave)
 set(OCTAVE_REL 4.2.0)
 set(OCTAVE_ROOT C:/Octave/Octave-${OCTAVE_REL})
-include_directories($(OCTAVE_ROOT)/include/octave-$(REL)/octave)
+include_directories(${OCTAVE_ROOT}/include/octave-${OCTAVE_REL}/octave)
+set(MEX_LIB_DIR ${OCTAVE_ROOT}/lib/octave/${OCTAVE_REL})
+set(MEX_LIBS ${MEX_LIB_DIR}/liboctave.dll.a
+${MEX_LIB_DIR}/liboctinterp.dll.a)
+else()
+set(MATLAB_ROOT "C:/Program Files/MATLAB/R2014a")
+include_directories(${MATLAB_ROOT}/extern/include)
+set(MEX_LIB_DIR ${MATLAB_ROOT}/extern/lib/win64/microsoft)
+set(MEX_LIBS libmex libmx)
+endif()
 
 FILE(GLOB PDE_LIB_SRC pde1dlib/*.cpp)
 FILE(GLOB PDE_H_FILES pde1dlib/*.h)
 FILE(GLOB PDE_MEX_SRC pde1dmex/*.cpp)
 FILE(GLOB PDE_MEX_H_FILES pde1dmex/*.h)
-FILE(GLOB PDE_JAC_SRC FDJacobian/*.cpp)
-FILE(GLOB PDE_JAC_H_FILES FDJacobian/*.h)
+FILE(GLOB PDE_JAC_SRC FDJacobian/*.cpp FDJacobian/FDJacobian.c)
+FILE(GLOB PDE_JAC_H_FILES FDJacobian/*.h FDJacobian/FDJacobian.h)
 
 #message("PDE_LIB_SRC=" ${PDE_LIB_SRC})
 
-link_directories(${SUNDIALS_LIB_DIR})
+link_directories(${SUNDIALS_LIB_DIR} ${SUITESPARSE_LIB_DIR} ${MEX_LIB_DIR})
 
 include_directories(./util)
 include_directories(./pde1dlib)
@@ -71,6 +90,23 @@ util/util.h
 util/util.cpp
 )
 
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
+target_sources (pde1d PUBLIC mexFunction.def)
+endif()
+
+
 target_link_libraries(pde1d PRIVATE
 ${SUNDIALS_LIBS}
+${SUITESPARSE_LIBS}
+${MEX_LIBS}
 )
+
+#message("CMAKE_BINARY_DIR=" ${CMAKE_BINARY_DIR})
+#message("CMAKE_INSTALL_PREFIX=" ${CMAKE_INSTALL_PREFIX})
+
+#"${CMAKE_BINARY_DIR}/\$\(Configuration\)/pde1d.dll"
+
+add_custom_command(TARGET pde1d POST_BUILD        # Adds a post-build event to MyTest
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different  # which executes "cmake - E copy_if_different..."      
+				$<TARGET_FILE:pde1d>
+        "${CMAKE_INSTALL_PREFIX}/pde1d.mex") 

@@ -84,7 +84,7 @@
 % flux - values of the flux defined by the PDE definition evaluated at the x locations
 % dudt - derivatives of the PDE variables with respect to time, evaluated at
 %        the x locations
-% du2dxdt - sectond derivatives of the PDE variables with respect to 
+% du2dxdt - second derivatives of the PDE variables with respect to 
 %           x and time, evaluated at the x locations
 %
 % v0=odeIcFunc()

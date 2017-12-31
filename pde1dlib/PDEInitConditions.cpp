@@ -133,9 +133,11 @@ void PDEInitConditions::calcShampineAlgo(double t0,
     if (diag > 1)
       cout << "res=" << res.transpose() << endl;
     pdeImpl.calcJacobian(t0, 1, 0, yNew, ypNew, res, dfDy);
-    //cout << "dfDy\n" << dfDy.toDense() << endl;
     pdeImpl.calcJacobian(t0, 0, 1, yNew, ypNew, res, dfDyp);
-    //cout << "dfDyp\n" << dfDyp.toDense() << endl;
+    if (diag > 2) {
+      cout << "dfDy\n" << dfDy.toDense() << endl;
+      cout << "dfDyp\n" << dfDyp.toDense() << endl;
+    }
 #if 0
     if (it == 1) {
       Eigen::saveMarket(dfDyp, "dfDyp.mtx");
@@ -164,6 +166,8 @@ void PDEInitConditions::calcShampineAlgo(double t0,
     auto S2122 = S.bottomRows(numAlgVars);
     //cout << S2122 << endl;
     Eigen::ColPivHouseholderQR<RealMatrix> qrS(S2122);
+    if (diag)
+      printf("IC: rank of S=%d\n", qrS.rank());
     if (qrS.rank() != numAlgVars) {
       printf("Error detected in computation of consistent initial conditions.\n");
     }
