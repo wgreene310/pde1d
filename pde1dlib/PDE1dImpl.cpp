@@ -691,12 +691,12 @@ void PDE1dImpl::testMats()
 #endif
   cout << "R\n" << R.transpose() << endl;
 #endif
-#if 0
+#if 1
   SparseMat jac(numFEEqns, numFEEqns);
   calcJacobian(0, 1, 0, u, up, R, jac);
   cout << "jac\n" << jac.toDense() << endl;
 #endif
-#if 0
+#if 1
   calcJacobian(0, 0, 1, u, up, R, jac);
   cout << "mass matrix\n" << jac.toDense() << endl;
 #endif
@@ -959,7 +959,7 @@ void PDE1dImpl::calcJacobianODE(double time, double beta, SunVector &u,
 void PDE1dImpl::calcJacobian(double time, double alpha, double beta, SunVector &u,
   SunVector &up, SunVector &R, SparseMat &Jac)
 {
-  const bool useCD = !true;
+  const bool useCD = !true; // use central difference approximation, if true
   finiteDiffJacobian->calcJacobian(time, alpha, beta, u.getNV(), up.getNV(), 
     R.getNV(), resFunc, this, Jac, useCD);
 }

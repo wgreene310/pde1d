@@ -42,12 +42,7 @@ sundials_ida
 sundials_nvecserial)
 include_directories(${SUNDIALS_ROOT}/include)
 
-set(BOOST_ROOT c:/boost)
-set(Boost_FIND_VERSION_EXACT ON)
-set(Boost_LIBRARY_DIR ${BOOST_ROOT}/boost_1_63_0/lib64-msvc-${VC_VER}.0)
-find_package( Boost 1.63.0 EXACT REQUIRED )
-# COMPONENTS python
-#include_directories(${Boost_INCLUDE_DIRS}/boost/tr1/tr1)
+find_package( Boost 1.63 REQUIRED )
 include_directories(${Boost_INCLUDE_DIRS})
 
 if(${PSE} STREQUAL Octave)
