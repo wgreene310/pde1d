@@ -167,9 +167,9 @@ void PDEInitConditions::calcShampineAlgo(double t0,
     //cout << S2122 << endl;
     Eigen::ColPivHouseholderQR<RealMatrix> qrS(S2122);
     if (diag)
-      printf("IC: rank of S=%d\n", qrS.rank());
+      cout << "IC: rank of S=" << qrS.rank() << endl;
     if (qrS.rank() != numAlgVars) {
-      printf("Error detected in computation of consistent initial conditions.\n");
+      cout << "Error detected in computation of consistent initial conditions." << endl;
     }
     dy = qrS.solve(d.bottomRows(numAlgVars));
     if (diag>1)
