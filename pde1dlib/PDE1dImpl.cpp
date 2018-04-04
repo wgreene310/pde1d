@@ -287,7 +287,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   initCond.update();
   //initCond.print();
 
-#if 0
+#if TEST_IC_CALC
   // testing only
   SunVector u0Tmp = initCond.getU0();
   SunVector up0Tmp = initCond.getUp0();
@@ -964,6 +964,7 @@ void PDE1dImpl::calcJacobian(double time, double alpha, double beta, SunVector &
     R.getNV(), resFunc, this, Jac, useCD);
 }
 
+#if TEST_IC_CALC
 void PDE1dImpl::testICCalc(SunVector &uu, SunVector &up, SunVector &res,
   SunVector &id, double tf)
 {
@@ -1000,6 +1001,7 @@ void PDE1dImpl::testICCalc(SunVector &uu, SunVector &up, SunVector &res,
 
   throw PDE1dException("pde1d:test", "IC test completed");
 }
+#endif
 
 double PDE1dImpl::calcResidualNorm(double t, SunVector &uu, SunVector &up, SunVector &res)
 {

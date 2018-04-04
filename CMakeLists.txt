@@ -22,9 +22,11 @@ set(EIGEN_ROOT "$ENV{HOME}/src/Eigen/eigen-3.3"
 include_directories(${EIGEN_ROOT})
 
 # suitesparse to get KLU for sundials ida
-set(SUITESPARSE_LIB_DIR "$ENV{HOME}/src/sparse_solvers/SuiteSparse/libs/x64"
+set(SUITESPARSE_ROOT "$ENV{HOME}/src/sparse_solvers/SuiteSparse")
+set(SUITESPARSE_LIB_DIR "${SUITESPARSE_ROOT}/libs/x64"
     CACHE FILEPATH "Path to Suitesparse libraries"
 )
+include_directories(${SUITESPARSE_ROOT}/include)
 set(SUITESPARSE_LIBS 
 libklu
 libamd
@@ -33,9 +35,15 @@ libbtf
 suitesparseconfig)
 
 # sundials ida
+if(1)
 set(SUNDIALS_ROOT "C:/temp/sundials_2.7_vs2015_x64"
     CACHE FILEPATH "Path to Sundials"
 )
+else()
+set(SUNDIALS_ROOT "C:/temp/sundials_3.1_vs2015_x64"
+    CACHE FILEPATH "Path to Sundials"
+)
+endif()
 set(SUNDIALS_LIB_DIR ${SUNDIALS_ROOT}/lib)
 set(SUNDIALS_LIBS
 sundials_ida

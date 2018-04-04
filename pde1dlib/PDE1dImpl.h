@@ -26,13 +26,13 @@ typedef Eigen::SparseMatrix<double> SparseMat;
 #include "GausLegendreIntRule.h"
 
 #include <nvector/nvector_serial.h>
+#include <sundials/sundials_sparse.h>
 
 class PDE1dOptions;
 class FiniteDiffJacobian;
 class ShapeFunction;
 class ShapeFunctionManager;
 class SunVector;
-struct _SlsMat;
 class PDEMeshMapper;
 class PDEModel;
 
@@ -43,7 +43,7 @@ public:
   int solveTransient(PDESolution &sol);
   void calcRHSODE(double time, SunVector &u, SunVector &up, SunVector &R);
   void calcJacobianODE(double time, double alpha, SunVector &u, 
-    SunVector &up, SunVector &R, _SlsMat *Jac);
+    SunVector &up, SunVector &R, SlsMat Jac);
   void calcJacobian(double time, double alpha, double beta, SunVector &u,
     SunVector &up, SunVector &R, SparseMat &Jac);
   const PDE1dOptions &getOptions() const {

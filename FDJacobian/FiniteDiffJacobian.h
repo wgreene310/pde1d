@@ -20,21 +20,6 @@
 
 #include <Eigen/SparseCore>
 
-struct SunSparseMat : public _SlsMat {
-  SunSparseMat(Eigen::SparseMatrix<double> &eMat) {
-    M = static_cast<int>(eMat.rows());
-    N = static_cast<int>(eMat.cols());
-    NNZ = static_cast<int>(eMat.nonZeros());
-    data = eMat.valuePtr();
-    indexvals = eMat.innerIndexPtr();
-    indexptrs = eMat.outerIndexPtr();
-    rowvals = &indexvals;
-    colptrs = &indexptrs;
-    colvals = NULL;
-    rowptrs = NULL;
-  }
-};
-
 class FiniteDiffJacobian {
 public:
   typedef Eigen::SparseMatrix<double> SparseMat;
