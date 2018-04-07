@@ -17,21 +17,6 @@
 #include "FDJacobian.h"
 #include "SunVector.h"
 
-struct SunSparseMat : public _SlsMat {
-  SunSparseMat(Eigen::SparseMatrix<double> &eMat) {
-    M = static_cast<int>(eMat.rows());
-    N = static_cast<int>(eMat.cols());
-    NNZ = static_cast<int>(eMat.nonZeros());
-    data = eMat.valuePtr();
-    indexvals = eMat.innerIndexPtr();
-    indexptrs = eMat.outerIndexPtr();
-    rowvals = &indexvals;
-    colptrs = &indexptrs;
-    colvals = NULL;
-    rowptrs = NULL;
-  }
-};
-
 namespace {
   const double sqrtEps = sqrt(std::numeric_limits<double>::epsilon());
   inline double stepLen(double vi) {
@@ -73,23 +58,36 @@ void FiniteDiffJacobian::calcJacobian(double tres, double alpha,
 {
   jac.resize(neq, neq);
   jac.reserve(nnz);
-  SunSparseMat ssm(jac);
   if (useCD)
-    calcJacobianCD(tres, alpha, beta, uu, up, r, rf, userData, &ssm);
+    calcJacobianCD(tres, alpha, beta, uu, up, r, rf, userData, 
+      jac.valuePtr(), jac.outerIndexPtr(), jac.innerIndexPtr());
   else
-    calcJacobian(tres, alpha, beta, uu, up, r, rf, userData, &ssm);
+    calcJacobian(tres, alpha, beta, uu, up, r, rf, userData, 
+      jac.valuePtr(), jac.outerIndexPtr(), jac.innerIndexPtr());
   jac.resizeNonZeros(nnz);
+}
+
+void FiniteDiffJacobian::calcJacobian(double tres, double alpha, double beta,
+  N_Vector uu, N_Vector up, N_Vector r,
+  IDAResFn rf, void *userData, SparseMap &jac, bool useCD) {
+  if (useCD)
+    calcJacobianCD(tres, alpha, beta, uu, up, r, rf, userData,
+      jac.valuePtr(), jac.outerIndexPtr(), jac.innerIndexPtr());
+  else
+    calcJacobian(tres, alpha, beta, uu, up, r, rf, userData,
+      jac.valuePtr(), jac.outerIndexPtr(), jac.innerIndexPtr());
 }
 
 void FiniteDiffJacobian::calcJacobian(double tres, double alpha,
   double beta, N_Vector uu, N_Vector up, N_Vector r,
-  IDAResFn rFunc, void *userData, SlsMat jac)
+  IDAResFn rFunc, void *userData, double *jacVals,
+  int *jacColPtrs, int *jacRowIndices)
 {
   typedef Eigen::Map<Eigen::VectorXd> MapVec;
   MapVec u(NV_DATA_S(uu), neq);
   MapVec uDot(NV_DATA_S(up), neq);
   MapVec resvec(NV_DATA_S(r), neq);
-  MapVec jacData(jac->data, nnz);
+  MapVec jacData(jacVals, nnz);
 
   rFunc(tres, uu, up, r, userData);
   Eigen::VectorXd u0 = u;
@@ -111,7 +109,7 @@ void FiniteDiffJacobian::calcJacobian(double tres, double alpha,
       fdjs_(&neq, &neq, &col, indrow.data(), jpntr.data(), ngrp.data(),
         &numgrp, d.data(), fjacd.data(), fjac.data());
     }
-    jacData = alpha*fjac;
+    jacData = alpha * fjac;
   }
   else
     jacData.setZero();
@@ -132,27 +130,22 @@ void FiniteDiffJacobian::calcJacobian(double tres, double alpha,
       fdjs_(&neq, &neq, &col, indrow.data(), jpntr.data(), ngrp.data(),
         &numgrp, d.data(), fjacd.data(), fjac.data());
     }
-    jacData += beta*fjac;
+    jacData += beta * fjac;
   }
 
-  // copy the row and column pointers
-  indrow.array() -= 1;
-  jpntr.array() -= 1;
-  std::copy_n(jpntr.data(), neq + 1, jac->indexptrs);
-  std::copy_n(indrow.data(), nnz, jac->indexvals);
-  indrow.array() += 1;
-  jpntr.array() += 1;
+  copyIndices(jacColPtrs, jacRowIndices);
 }
 
 void FiniteDiffJacobian::calcJacobianCD(double tres, double alpha,
   double beta, N_Vector uu, N_Vector up, N_Vector r,
-  IDAResFn rFunc, void *userData, SlsMat jac)
+  IDAResFn rFunc, void *userData, double *jacVals,
+  int *jacColPtrs, int *jacRowIndices)
 {
   typedef Eigen::Map<Eigen::VectorXd> MapVec;
   MapVec u(NV_DATA_S(uu), neq);
   MapVec uDot(NV_DATA_S(up), neq);
   MapVec resvec(NV_DATA_S(r), neq);
-  MapVec jacData(jac->data, nnz);
+  MapVec jacData(jacVals, nnz);
 
   rFunc(tres, uu, up, r, userData);
   Eigen::VectorXd u0 = u;
@@ -205,12 +198,18 @@ void FiniteDiffJacobian::calcJacobianCD(double tres, double alpha,
     jacData += beta*fjac;
   }
 
+  copyIndices(jacColPtrs, jacRowIndices);
+}
+
+void FiniteDiffJacobian::copyIndices(int *outerInd, int *innerInd) {
   // copy the row and column pointers
   indrow.array() -= 1;
   jpntr.array() -= 1;
-  std::copy_n(jpntr.data(), neq + 1, jac->indexptrs);
-  std::copy_n(indrow.data(), nnz, jac->indexvals);
+  std::copy_n(jpntr.data(), neq + 1, outerInd);
+  std::copy_n(indrow.data(), nnz, innerInd);
   indrow.array() += 1;
   jpntr.array() += 1;
 }
+
+
 

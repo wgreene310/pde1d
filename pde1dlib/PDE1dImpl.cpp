@@ -952,8 +952,11 @@ void PDE1dImpl::calcJacPattern(Eigen::SparseMatrix<double> &J)
 void PDE1dImpl::calcJacobianODE(double time, double beta, SunVector &u, 
   SunVector &up, SunVector &res, SlsMat Jac)
 {
-  finiteDiffJacobian->calcJacobian(time, 1, beta, u.getNV(), up.getNV(), 
-    res.getNV(), resFunc, this, Jac);
+  FiniteDiffJacobian::SparseMap eigJac(Jac->N, Jac->M,
+    Jac->NNZ, Jac->indexptrs, Jac->indexvals, Jac->data);
+  const bool useCD = !true; // use central difference approximation, if true
+  finiteDiffJacobian->calcJacobian(time, 1, beta, u.getNV(), up.getNV(),
+    res.getNV(), resFunc, this, eigJac, useCD);
 }
 
 void PDE1dImpl::calcJacobian(double time, double alpha, double beta, SunVector &u,

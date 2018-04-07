@@ -16,13 +16,13 @@
 
 #include <nvector/nvector_serial.h>
 #include <ida/ida.h>
-#include <ida/ida_klu.h>
 
 #include <Eigen/SparseCore>
 
 class FiniteDiffJacobian {
 public:
   typedef Eigen::SparseMatrix<double> SparseMat;
+  typedef Eigen::Map<SparseMat> SparseMap;
   FiniteDiffJacobian(SparseMat &jacPattern);
   ~FiniteDiffJacobian();
   void calcJacobian(double tres, double alpha, double beta,
@@ -30,11 +30,17 @@ public:
     IDAResFn rf, void *userData, SparseMat &Jac, bool useCD=false);
   void calcJacobian(double tres, double alpha, double beta,
     N_Vector uu, N_Vector up, N_Vector r,
-    IDAResFn rf, void *userData, SlsMat Jac);
-  void calcJacobianCD(double tres, double alpha, double beta,
-    N_Vector uu, N_Vector up, N_Vector r,
-    IDAResFn rf, void *userData, SlsMat Jac);
+    IDAResFn rf, void *userData, SparseMap &jac, bool useCD = false);
 private:
+  void calcJacobian(double tres, double alpha,
+    double beta, N_Vector uu, N_Vector up, N_Vector r,
+    IDAResFn rf, void *userData, double *jacData, 
+    int *jacColPtrs, int *jacRowIndices);
+  void calcJacobianCD(double tres, double alpha,
+    double beta, N_Vector uu, N_Vector up, N_Vector r,
+    IDAResFn rf, void *userData, double *jacData,
+    int *jacColPtrs, int *jacRowIndices);
+  void copyIndices(int *outerInd, int *innerInd);
   int neq, nnz;
   Eigen::VectorXi indrow, jpntr, ngrp;
   int maxgrp, mingrp;
