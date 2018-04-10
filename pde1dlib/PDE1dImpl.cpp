@@ -28,15 +28,25 @@ using std::endl;
 
 #define DAE_Y_INIT 0
 
-#define SUN_USING_SPARSE 1
 #define BAND_SOLVER 0
 
 #include <ida/ida.h>
+#include <ida/ida_direct.h> 
+#define SUN_USING_SPARSE 1
+#if SUNDIALS_VERSION_MAJOR >= 3
+#define SUNDIALS_3 1
+#endif
 #if SUN_USING_SPARSE
+#if SUNDIALS_3
+#include <sunlinsol/sunlinsol_klu.h>
+#else
 #include <ida/ida_klu.h>
 #endif
+#elif BAND_SOLVER
 #include <ida/ida_band.h>
+#else
 #include <ida/ida_dense.h>
+#endif
 #include <nvector/nvector_serial.h>
 #include <sundials/sundials_types.h>
 
@@ -53,6 +63,21 @@ using std::endl;
 #include "PDEModel.h"
 #include "PDESolution.h"
 #include <util.h>
+
+#if SUNDIALS_3
+class SunSparseMap : public FiniteDiffJacobian::SparseMap {
+public:
+  SunSparseMap(SUNMatrix a) :
+    FiniteDiffJacobian::SparseMap(SUNSparseMatrix_Rows(a),
+      SUNSparseMatrix_Columns(a), 
+      SUNSparseMatrix_NNZ(a),
+      SUNSparseMatrix_IndexPointers(a), 
+      SUNSparseMatrix_IndexValues(a),
+      SUNSparseMatrix_Data(a)) {
+
+  }
+};
+#endif
 
 PDE1dImpl::PDE1dImpl(PDE1dDefn &pde, PDE1dOptions &options) : 
 pde(pde), options(options)
@@ -159,7 +184,12 @@ namespace {
 #if SUN_USING_SPARSE
   int jacFunc(realtype t, realtype c_j,
     N_Vector uu, N_Vector up, N_Vector r,
-    SlsMat Jac, void *user_data,
+#if SUNDIALS_3
+    SUNMatrix Jac, 
+#else
+    SlsMat Jac,
+#endif
+    void *user_data,
     N_Vector tmp1, N_Vector tmp2, N_Vector tmp3) {
 
     PDE1dImpl *fem = (PDE1dImpl*) user_data;
@@ -269,10 +299,22 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   check_flag(&ier, "IDASetMaxNumSteps", 1);
 #if SUN_USING_SPARSE
   //printf("Using sparse solver.\n");
+#if SUNDIALS_3
+  SUNMatrix A = SUNSparseMatrix((sunindextype) totalNumEqns,
+    (sunindextype) totalNumEqns, (sunindextype) numNonZerosJacMax, CSC_MAT);
+  check_flag(A, "SUNSparseMatrix", 0);
+  SUNLinearSolver LS = SUNKLU(uu.getNV(), A);
+  check_flag(LS, "SUNKLU", 0);
+  ier = IDADlsSetLinearSolver(ida, LS, A);
+  check_flag(&ier, "IDADlsSetLinearSolver", 1);
+  ier = IDADlsSetJacFn(ida, jacFunc);
+  check_flag(&ier, "IDADlsSetJacFn", 1);
+#else
   ier = IDAKLU(ida, (int) totalNumEqns, (int) numNonZerosJacMax, CSC_MAT);
   check_flag(&ier, "IDAKLU", 1);
   ier = IDASlsSetSparseJacFn(ida, jacFunc);
   check_flag(&ier, "IDASlsSetSparseJacFn", 1);
+#endif
 #elif BAND_SOLVER
   /* Call IDABand to specify the linear solver. */
   int mu = 2*numDepVars-1, ml = mu;
@@ -305,6 +347,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
     double tout=tspan(i), tret;
     ier = IDASolve(ida, tout, &tret, uu.getNV(), up.getNV(), IDA_NORMAL);
     if (ier < 0) {
+      printf("Error returned from IDASolve=%d\n", ier);
       printStats();
       char msg[1024];
       sprintf(msg, "Time integration failed at t=%15.6e before reaching final time.\n"
@@ -949,14 +992,28 @@ void PDE1dImpl::calcJacPattern(Eigen::SparseMatrix<double> &J)
   //cout << "pattern\n" << J.toDense() << endl;
 }
 
+#if SUNDIALS_3
 void PDE1dImpl::calcJacobianODE(double time, double beta, SunVector &u, 
+  SunVector &up, SunVector &res, SUNMatrix Jac)
+{
+  SunSparseMap eigJac(Jac);
+#else
+void PDE1dImpl::calcJacobianODE(double time, double beta, SunVector &u,
   SunVector &up, SunVector &res, SlsMat Jac)
 {
-  FiniteDiffJacobian::SparseMap eigJac(Jac->N, Jac->M,
-    Jac->NNZ, Jac->indexptrs, Jac->indexvals, Jac->data);
+FiniteDiffJacobian::SparseMap eigJac(Jac->N, Jac->M,
+  Jac->NNZ, Jac->indexptrs, Jac->indexvals, Jac->data);
+#endif
   const bool useCD = !true; // use central difference approximation, if true
   finiteDiffJacobian->calcJacobian(time, 1, beta, u.getNV(), up.getNV(),
     res.getNV(), resFunc, this, eigJac, useCD);
+#if 0
+#if SUNDIALS_3
+  SUNSparseMatrix_Print(Jac, stdout);
+#else
+  SparsePrintMat(Jac, stdout);
+#endif
+#endif
 }
 
 void PDE1dImpl::calcJacobian(double time, double alpha, double beta, SunVector &u,
