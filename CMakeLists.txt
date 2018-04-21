@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.1)
 
 project(pde1d)
 SET( CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE )
@@ -28,22 +28,33 @@ set(SUITESPARSE_LIB_DIR "${SUITESPARSE_ROOT}/lib64"
 		)
 include_directories(${SUITESPARSE_ROOT}/include/suitesparse)
 
+# 
+# With Visual Studio we want different debug/release libraries
+# depending on the IDE setting. So they can't be identified explicitly
+# at configuration time.
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
 set(SUITESPARSE_LIBS 
 libklu
 libamd
 libcolamd
 libbtf
 suitesparseconfig)
+else()
+find_library(SS_KLU NAMES klu PATHS ${SUITESPARSE_LIB_DIR})
+find_library(SS_AMD NAMES amd PATHS ${SUITESPARSE_LIB_DIR})
+find_library(SS_COLAMD NAMES colamd PATHS ${SUITESPARSE_LIB_DIR})
+find_library(SS_BTF NAMES btf PATHS ${SUITESPARSE_LIB_DIR})
+find_library(SS_CONFIG NAMES suitesparseconfig PATHS ${SUITESPARSE_LIB_DIR})
+set(SUITESPARSE_LIBS
+${SS_KLU}
+${SS_AMD}
+${SS_COLAMD}
+${SS_BTF}
+${SS_CONFIG}
+)
+endif()
 
 # sundials ida
-if(0)
-set(SUNDIALS_ROOT "C:/temp/sundials_2.7_vs2015_x64"
-    CACHE FILEPATH "Path to Sundials"
-)
-set(SUNDIALS_LIBS
-sundials_ida
-sundials_nvecserial)
-else()
 set(SUNDIALS_ROOT "C:/temp/sundials_3.1_vs2015_x64"
     CACHE FILEPATH "Path to Sundials"
 )
@@ -51,7 +62,6 @@ set(SUNDIALS_LIBS
 sundials_ida
 sundials_sunlinsolklu.lib
 sundials_nvecserial)
-endif()
 set(SUNDIALS_LIB_DIR ${SUNDIALS_ROOT}/lib)
 include_directories(${SUNDIALS_ROOT}/include)
 
@@ -98,21 +108,17 @@ util/util.h
 util/util.cpp
 )
 
+target_compile_features(pde1d PUBLIC cxx_std_11)
+
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
 target_sources (pde1d PUBLIC mexFunction.def)
 endif()
-
 
 target_link_libraries(pde1d PRIVATE
 ${SUNDIALS_LIBS}
 ${SUITESPARSE_LIBS}
 ${MEX_LIBS}
 )
-
-#message("CMAKE_BINARY_DIR=" ${CMAKE_BINARY_DIR})
-#message("CMAKE_INSTALL_PREFIX=" ${CMAKE_INSTALL_PREFIX})
-
-#"${CMAKE_BINARY_DIR}/\$\(Configuration\)/pde1d.dll"
 
 add_custom_command(TARGET pde1d POST_BUILD        # Adds a post-build event to MyTest
     COMMAND ${CMAKE_COMMAND} -E copy_if_different  # which executes "cmake - E copy_if_different..."      
