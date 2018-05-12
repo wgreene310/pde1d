@@ -30,6 +30,7 @@ using std::endl;
 
 #define BAND_SOLVER 0
 
+
 #include <ida/ida.h>
 #include <ida/ida_direct.h> 
 #define SUN_USING_SPARSE 1
@@ -37,10 +38,12 @@ using std::endl;
 #define SUNDIALS_3 1
 #endif
 #if SUN_USING_SPARSE
+#if ! USE_EIGEN_LU
 #if SUNDIALS_3
 #include <sunlinsol/sunlinsol_klu.h>
 #else
 #include <ida/ida_klu.h>
+#endif
 #endif
 #elif BAND_SOLVER
 #include <ida/ida_band.h>
@@ -63,6 +66,7 @@ using std::endl;
 #include "PDEModel.h"
 #include "PDESolution.h"
 #include <util.h>
+#include "EigenSUNSparseSolver.h"
 
 #if SUNDIALS_3
 class SunSparseMap : public FiniteDiffJacobian::SparseMap {
@@ -74,7 +78,6 @@ public:
       SUNSparseMatrix_IndexPointers(a), 
       SUNSparseMatrix_IndexValues(a),
       SUNSparseMatrix_Data(a)) {
-
   }
 };
 #endif
@@ -300,11 +303,17 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
 #if SUN_USING_SPARSE
   //printf("Using sparse solver.\n");
 #if SUNDIALS_3
-  SUNMatrix A = SUNSparseMatrix((sunindextype) totalNumEqns,
-    (sunindextype) totalNumEqns, (sunindextype) numNonZerosJacMax, CSC_MAT);
+  SUNMatrix A = SUNSparseMatrix((sunindextype)totalNumEqns,
+    (sunindextype)totalNumEqns, (sunindextype)numNonZerosJacMax, CSC_MAT);
   check_flag(A, "SUNSparseMatrix", 0);
+#if USE_EIGEN_LU
+  //cout << "Using Eigen Sparse LU" << endl;
+  EigenSUNSparseSolver linearSolver(uu.getNV(), A);
+  SUNLinearSolver LS = &linearSolver;
+#else
   SUNLinearSolver LS = SUNKLU(uu.getNV(), A);
   check_flag(LS, "SUNKLU", 0);
+#endif
   ier = IDADlsSetLinearSolver(ida, LS, A);
   check_flag(&ier, "IDADlsSetLinearSolver", 1);
   ier = IDADlsSetJacFn(ida, jacFunc);

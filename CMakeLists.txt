@@ -17,17 +17,21 @@ add_compile_options("/wd4996")
 add_definitions(-DNOMINMAX)
 endif()
 
-set(EIGEN_ROOT "$ENV{HOME}/src/Eigen/eigen-3.3" 
+set(EIGEN_ROOT "$ENV{HOME}/src/Eigen/eigen-3.3.4" 
     CACHE FILEPATH "Path to Eigen library")
 include_directories(${EIGEN_ROOT})
 
+
+set(LINEAR_SOLVER "KLU" CACHE STRING "Sparse Linear Solver")
+set_property(CACHE LINEAR_SOLVER PROPERTY STRINGS Eigen KLU)
+
+if(${LINEAR_SOLVER} STREQUAL KLU)
 # suitesparse to get KLU for sundials ida
-set(SUITESPARSE_ROOT "C:/temp/Projects/suitesparse4.5/install")
+set(SUITESPARSE_ROOT "C:/temp/Projects/suitesparse5.1/install")
 set(SUITESPARSE_LIB_DIR "${SUITESPARSE_ROOT}/lib64"
     CACHE FILEPATH "Path to Suitesparse libraries"
 		)
 include_directories(${SUITESPARSE_ROOT}/include/suitesparse)
-
 # 
 # With Visual Studio we want different debug/release libraries
 # depending on the IDE setting. So they can't be identified explicitly
@@ -53,6 +57,9 @@ ${SS_BTF}
 ${SS_CONFIG}
 )
 endif()
+else()
+add_definitions(-DUSE_EIGEN_LU)
+endif()
 
 # sundials ida
 set(SUNDIALS_ROOT "C:/temp/sundials_3.1_vs2015_x64"
@@ -65,11 +72,11 @@ sundials_nvecserial)
 set(SUNDIALS_LIB_DIR ${SUNDIALS_ROOT}/lib)
 include_directories(${SUNDIALS_ROOT}/include)
 
-find_package( Boost 1.63 REQUIRED )
+find_package( Boost 1.67 REQUIRED )
 include_directories(${Boost_INCLUDE_DIRS})
 
 if(${PSE} STREQUAL Octave)
-set(OCTAVE_REL 4.2.0)
+set(OCTAVE_REL 4.4.0)
 set(OCTAVE_ROOT C:/Octave/Octave-${OCTAVE_REL})
 include_directories(${OCTAVE_ROOT}/include/octave-${OCTAVE_REL}/octave)
 set(MEX_LIB_DIR ${OCTAVE_ROOT}/lib/octave/${OCTAVE_REL})
@@ -116,9 +123,12 @@ endif()
 
 target_link_libraries(pde1d PRIVATE
 ${SUNDIALS_LIBS}
-${SUITESPARSE_LIBS}
 ${MEX_LIBS}
 )
+
+if(${LINEAR_SOLVER} STREQUAL KLU)
+target_link_libraries(pde1d PRIVATE ${SUITESPARSE_LIBS})
+endif()
 
 add_custom_command(TARGET pde1d POST_BUILD        # Adds a post-build event to MyTest
     COMMAND ${CMAKE_COMMAND} -E copy_if_different  # which executes "cmake - E copy_if_different..."      
