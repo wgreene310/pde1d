@@ -8,8 +8,8 @@
 #include <nvector/nvector_serial.h> 
 
 #include <Eigen/SparseCore>
-typedef Eigen::SparseMatrix<double, Eigen::ColMajor, sunindextype> SparseMat;
-typedef Eigen::Map<SparseMat> ESM;
+typedef Eigen::SparseMatrix<double, Eigen::ColMajor, sunindextype> SSparseMat;
+typedef Eigen::Map<SSparseMat> ESM;
 
 class SunSparseMapX : public ESM {
 public:

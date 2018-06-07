@@ -35,10 +35,11 @@ else
       #SUNDIALS_ROOT=/usr/local/include/sundials
       #SUNDIALS_LDIR=/usr/local/lib
       #SUNDIALS_INC=-I$(SUNDIALS_ROOT)/include -I./ 
-			SUNDIALS_ROOT=$(HOME)/sundials
+			SUNDIALS_ROOT=$(HOME)/sundials3.1
       SUNDIALS_LDIR=$(SUNDIALS_ROOT)/lib
       SUNDIALS_INC=-I$(SUNDIALS_ROOT)/include
 			BOOST_ROOT=/usr/local
+      SS_INC=-I/usr/include/suitesparse
 	    SUITESPARSE_LIBS= -L/usr/lib/i386-linux-gnu -l:libklu.a -l:libamd.a \
 			                  -l:libcolamd.a -l:libbtf.a -lsuitesparseconfig
 		endif
@@ -54,7 +55,7 @@ else
 		endif
 endif
 
-INC=-I$(EIGEN) -I$(OCTAVE_INC) $(SUNDIALS_INC) \
+INC=-I$(EIGEN) -I$(OCTAVE_INC) $(SUNDIALS_INC) $(SS_INC) \
      -Ipde1dlib -IFDJacobian -Iutil -I$(BOOST_ROOT)
 
 CXXFLAGS= -g -O2 -std=gnu++0x -Wno-deprecated-declarations $(INC)
@@ -62,15 +63,16 @@ CXXFLAGS= -g -O2 -std=gnu++0x -Wno-deprecated-declarations $(INC)
 VPATH=./pde1dlib ./pde1dmex ./FDJacobian ./util
 
 LIBS=$(SUNDIALS_LDIR)/libsundials_ida.a $(SUNDIALS_LDIR)/libsundials_nvecserial.a \
+     $(SUNDIALS_LDIR)/libsundials_sunlinsolklu.a \
      $(LIB_OCT) $(SUITESPARSE_LIBS)
 
 OBJS=pde1dmex.o PDE1dMexInt.o PDE1dImpl.o PDE1dDefn.o PDEInitConditions.o \
      GausLegendreIntRule.o SunVector.o FDJacobian.o FiniteDiffJacobian.o \
 		 ShapeFunction.o MexInterface.o PDEMeshMapper.o PDEModel.o PDEElement.o util.o \
-		 ShapeFunctionManager.o ShapeFunctionHierarchical.o
+		 ShapeFunctionManager.o ShapeFunctionHierarchical.o PDESolution.o
 
 pde1d.mex: $(OBJS)
-	mkoctfile -mex  $(OBJS) $(LIBS) -o pde1d.mex
+	mkoctfile -v -mex  $(OBJS) $(LIBS) -o pde1d.mex
 
 clean:
 	$(RM) *.o ./pde1dlib/*.o ./pde1dmex/*.o

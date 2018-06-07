@@ -22,6 +22,12 @@
 
 #include <PDE1dDefn.h>
 
+#ifdef _MSC_VER
+// octave incorrectly defines mwSize
+#pragma warning( push )
+#pragma warning( disable : 4267)
+#endif
+
 class PDE1dMexInt : public PDE1dDefn
 {
 public:
@@ -107,6 +113,10 @@ private:
   static const int maxMatlabRetArgs = 4;
   mxArray *matOutArgs[maxMatlabRetArgs];
 };
+
+#ifdef _MSC_VER
+#pragma warning( pop )
+#endif
 
 #endif
 

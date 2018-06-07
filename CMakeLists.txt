@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.1)
+cmake_minimum_required (VERSION 3.0)
 
 project(pde1d)
 SET( CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE )
@@ -7,6 +7,7 @@ cmake_policy(SET CMP0008 NEW)
 set(PSE "Octave" CACHE STRING "Problem solving environment")
 set_property(CACHE PSE PROPERTY STRINGS Octave MATLAB)
 
+#message("CMAKE_CXX_COMPILER_ID=" ${CMAKE_CXX_COMPILER_ID})
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
 if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 19)
  set(VC_VER 14)
@@ -15,23 +16,40 @@ else()
 endif()
 add_compile_options("/wd4996")
 add_definitions(-DNOMINMAX)
+elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL GNU)
+add_compile_options("-std=gnu++0x")
+#add_compile_options("-H")
 endif()
 
-set(EIGEN_ROOT "$ENV{HOME}/src/Eigen/eigen-3.3.4" 
-    CACHE FILEPATH "Path to Eigen library")
+find_path(EIGEN_ROOT signature_of_eigen3_matrix_library 
+          DOC "Path to Eigen library")
+message("EIGEN_ROOT=" ${EIGEN_ROOT})
 include_directories(${EIGEN_ROOT})
 
 
 set(LINEAR_SOLVER "KLU" CACHE STRING "Sparse Linear Solver")
 set_property(CACHE LINEAR_SOLVER PROPERTY STRINGS Eigen KLU)
+message("LINEAR_SOLVER=" ${LINEAR_SOLVER})
 
 if(${LINEAR_SOLVER} STREQUAL KLU)
 # suitesparse to get KLU for sundials ida
-set(SUITESPARSE_ROOT "C:/temp/Projects/suitesparse5.1/install")
+set(SUITESPARSE_ROOT SUITESPARSE_ROOT-NOTFOUND CACHE PATH "Path to SuiteSparse")
+if(SUITESPARSE_ROOT)
 set(SUITESPARSE_LIB_DIR "${SUITESPARSE_ROOT}/lib64"
-    CACHE FILEPATH "Path to Suitesparse libraries"
+    CACHE PATH "Path to Suitesparse libraries"
 		)
-include_directories(${SUITESPARSE_ROOT}/include/suitesparse)
+set(SUITESPARSE_INC_DIR "${SUITESPARSE_ROOT}/include/suitesparse"
+    CACHE PATH "Path to Suitesparse includes"
+		)
+endif()
+if(NOT SUITESPARSE_LIB_DIR)
+  message(SEND_ERROR "Path to SuiteSparse libraries not found")
+endif()
+if(NOT SUITESPARSE_INC_DIR)
+  message(SEND_ERROR "Path to SuiteSparse include files not found")
+endif()
+message("SUITESPARSE_INC_DIR=" ${SUITESPARSE_INC_DIR})
+include_directories(${SUITESPARSE_INC_DIR})
 # 
 # With Visual Studio we want different debug/release libraries
 # depending on the IDE setting. So they can't be identified explicitly
@@ -62,32 +80,46 @@ add_definitions(-DUSE_EIGEN_LU)
 endif()
 
 # sundials ida
-set(SUNDIALS_ROOT "C:/temp/sundials_3.1_vs2015_x64"
-    CACHE FILEPATH "Path to Sundials"
-)
+set(SUNDIALS_ROOT SUNDIALS_ROOT-NOTFOUND CACHE PATH "Path to Sundials")
+if(NOT SUNDIALS_ROOT)
+  message(SEND_ERROR "Path to Sundials not found")
+endif()
 set(SUNDIALS_LIBS
 sundials_ida
-sundials_sunlinsolklu.lib
+sundials_sunlinsolklu
 sundials_nvecserial)
 set(SUNDIALS_LIB_DIR ${SUNDIALS_ROOT}/lib)
 include_directories(${SUNDIALS_ROOT}/include)
+message("SUNDIALS_ROOT=" ${SUNDIALS_ROOT})
 
-find_package( Boost 1.67 REQUIRED )
+find_package( Boost 1.55 REQUIRED )
 include_directories(${Boost_INCLUDE_DIRS})
 
 if(${PSE} STREQUAL Octave)
-set(OCTAVE_REL 4.4.0)
-set(OCTAVE_ROOT C:/Octave/Octave-${OCTAVE_REL})
+set(OCTAVE_REL 4.4.0 CACHE STRING "Octave Version")
+set(OCTAVE_ROOT OCTAVE_ROOT-NOTFOUND CACHE PATH "Path to Octave")
+if(NOT OCTAVE_ROOT)
+  message(SEND_ERROR "Path to Octave not found")
+endif()
 include_directories(${OCTAVE_ROOT}/include/octave-${OCTAVE_REL}/octave)
 set(MEX_LIB_DIR ${OCTAVE_ROOT}/lib/octave/${OCTAVE_REL})
-set(MEX_LIBS ${MEX_LIB_DIR}/liboctave.dll.a
-${MEX_LIB_DIR}/liboctinterp.dll.a)
+if(${CMAKE_SYSTEM_NAME} STREQUAL Windows)
+  set(MEX_LIBS ${MEX_LIB_DIR}/liboctave.dll.a
+               ${MEX_LIB_DIR}/liboctinterp.dll.a)
 else()
-set(MATLAB_ROOT "C:/Program Files/MATLAB/R2014a")
+  set(MEX_LIBS octave octinterp)
+endif()
+else()
+set(MATLAB_ROOT MATLAB_ROOT-NOTFOUND CACHE PATH "Path to MATLAB")
+if(NOT MATLAB_ROOT)
+  message(SEND_ERROR "Path to MATLAB not found")
+endif()
 include_directories(${MATLAB_ROOT}/extern/include)
 set(MEX_LIB_DIR ${MATLAB_ROOT}/extern/lib/win64/microsoft)
 set(MEX_LIBS libmex libmx)
 endif()
+message("OCTAVE_ROOT=" ${OCTAVE_ROOT})
+message("OCTAVE_REL=" ${OCTAVE_REL})
 
 FILE(GLOB PDE_LIB_SRC pde1dlib/*.cpp)
 FILE(GLOB PDE_H_FILES pde1dlib/*.h)
@@ -96,7 +128,7 @@ FILE(GLOB PDE_MEX_H_FILES pde1dmex/*.h)
 FILE(GLOB PDE_JAC_SRC FDJacobian/*.cpp FDJacobian/FDJacobian.c)
 FILE(GLOB PDE_JAC_H_FILES FDJacobian/*.h FDJacobian/FDJacobian.h)
 
-#message("PDE_LIB_SRC=" ${PDE_LIB_SRC})
+message("MEX_LIB_DIR=" ${MEX_LIB_DIR})
 
 link_directories(${SUNDIALS_LIB_DIR} ${SUITESPARSE_LIB_DIR} ${MEX_LIB_DIR})
 
@@ -115,7 +147,7 @@ util/util.h
 util/util.cpp
 )
 
-target_compile_features(pde1d PUBLIC cxx_std_11)
+#target_compile_features(pde1d PUBLIC cxx_std_11)
 
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
 target_sources (pde1d PUBLIC mexFunction.def)
@@ -130,7 +162,7 @@ if(${LINEAR_SOLVER} STREQUAL KLU)
 target_link_libraries(pde1d PRIVATE ${SUITESPARSE_LIBS})
 endif()
 
-add_custom_command(TARGET pde1d POST_BUILD        # Adds a post-build event to MyTest
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different  # which executes "cmake - E copy_if_different..."      
+add_custom_command(TARGET pde1d POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different # which executes "cmake - E copy_if_different..."      
 				$<TARGET_FILE:pde1d>
         "${CMAKE_INSTALL_PREFIX}/pde1d.mex") 

@@ -30,6 +30,8 @@ using std::endl;
 
 #define BAND_SOLVER 0
 
+#define TEST_IC_CALC 0
+
 
 #include <ida/ida.h>
 #include <ida/ida_direct.h> 

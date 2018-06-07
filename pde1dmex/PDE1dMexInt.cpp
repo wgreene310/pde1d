@@ -21,6 +21,12 @@ using std::endl;
 
 #include <boost/timer.hpp>
 
+#ifdef _MSC_VER
+// octave incorrectly defines mwSize
+#pragma warning( push )
+#pragma warning( disable : 4267)
+#endif
+
 #include "PDE1dMexInt.h"
 #include "MexInterface.h"
 
@@ -361,3 +367,7 @@ std::string PDE1dMexInt::getFuncNameFromHandle(const mxArray *fh)
   std::string nam(buf);
   return nam;
 }
+
+#ifdef _MSC_VER
+#pragma warning( pop )
+#endif
