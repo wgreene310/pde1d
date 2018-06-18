@@ -680,11 +680,18 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
   MapMat u2(u.data(), numDepVars, nnfe);
   size_t rightDofOff = numFEEqns - numDepVars;
   RealVector ul = u2.col(0), ur = u2.col(nnfe-1);
-  pde.evalBC(mesh(0), ul, mesh(mesh.size()-1), ur, time, v, vDot, bc);
+  const double xl = mesh(0), xr = mesh(mesh.size() - 1);
+  pde.evalBC(xl, ul, xr, ur, time, v, vDot, bc);
+  const int m = pde.getCoordSystem();
   for (int i = 0; i < numDepVars; i++) {
     if (bc.ql(i) != 0) {
       //printf("bc: i=%d, ql=%f, pl=%f\n", i, bc.ql(i), bc.pl(i));
-      R(i) -= bc.pl(i) / bc.ql(i);
+      double qli = bc.ql(i);
+      if (m == 1)
+        qli /= xl;
+      else if(m==2)
+        qli /= (xl*xl);
+      R(i) -= bc.pl(i) / qli;
     }
     else {
       // apply dirichlet constraint
@@ -692,7 +699,12 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
       Cxd(i) = 0;
     }
     if (bc.qr(i) != 0) {
-      R(i + rightDofOff) += bc.pr(i) / bc.qr(i);
+      double qri = bc.qr(i);
+      if (m == 1)
+        qri /= xr;
+      else if (m == 2)
+        qri /= (xr*xr);
+      R(i + rightDofOff) += bc.pr(i) / qri;
     }
     else {
       // apply dirichlet constraint
