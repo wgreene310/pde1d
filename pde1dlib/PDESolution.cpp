@@ -35,12 +35,15 @@ PDESolution::PDESolution(const PDE1dDefn &pde, const PDEModel &model,
   time(pde.getTimeSpan()), numViewElemsPerElem(numViewElemsPerElem),
   pde(pde), model(model)
 {
-  size_t numTimes = time.size();
+  numTimesSet = 0;
+  numEventsSet = 0;
+  size_t maxNumTimes = time.size();
+  outTimes.resize(maxNumTimes);
   int numPDE = pde.getNumPDE();
   if (numViewElemsPerElem == 1) {
     x = initialX;
     size_t nnOrig = x.size();
-    u.resize(numTimes, nnOrig*numPDE);
+    u.resize(maxNumTimes, nnOrig*numPDE);
     const size_t nnfee = model.numNodesFEEqns();
     u2Tmp.resize(1, nnOrig*numPDE);
   }
@@ -48,7 +51,7 @@ PDESolution::PDESolution(const PDE1dDefn &pde, const PDEModel &model,
     size_t ne = initialX.size() - 1;
     numNodesViewMesh = numViewElemsPerElem*ne + 1;
     x.resize(numNodesViewMesh);
-    u.resize(numTimes, numNodesViewMesh*numPDE);
+    u.resize(maxNumTimes, numNodesViewMesh*numPDE);
     u2Tmp.resize(numPDE, numNodesViewMesh);
     x(0) = initialX(0);
     double xij = x(0);
@@ -62,11 +65,18 @@ PDESolution::PDESolution(const PDE1dDefn &pde, const PDEModel &model,
       }
     }
   }
+  numEvents = pde.getNumEvents();
+  if (numEvents) {
+    eventsSolution.resize(numEvents, u.cols());
+    eventsTimes.resize(numEvents);
+    eventsIndex.resize(numEvents);
+  }
 }
 
 void PDESolution::setSolutionVector(int timeStep, double time,
   const RealVector &uSol)
 {
+  outTimes(numTimesSet++) = time;
   int numDepVars = pde.getNumPDE();
   const size_t nnfee = model.numNodesFEEqns();
   if (numViewElemsPerElem == 1) {
@@ -125,4 +135,24 @@ void PDESolution::setSolutionVector(int timeStep, double time,
 void PDESolution::print() const
 {
   cout << "Solution, u\n" << u << endl;
+}
+
+void PDESolution::close()
+{
+  outTimes.conservativeResize(numTimesSet);
+  u.conservativeResize(numTimesSet, u.cols());
+  if (numEventsSet < numEvents) {
+    eventsSolution.conservativeResize(numEventsSet, u.cols());
+    eventsTimes.conservativeResize(numEventsSet);
+    eventsIndex.conservativeResize(numEventsSet);
+  }
+}
+
+void PDESolution::setEventsSolution(int timeStep, double time,
+  const RealVector &u, const IntVector &eventsFound)
+{
+  eventsSolution.row(numEventsSet) = u;
+  eventsTimes(numEventsSet) = time;
+  eventsIndex(numEventsSet) = numEventsSet + 1;
+  ++numEventsSet;
 }

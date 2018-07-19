@@ -36,13 +36,13 @@ public:
     return (int) x.size();
   }
   int numTimePoints() const {
-    return (int) time.size();
+    return (int) outTimes.size();
   }
   const RealVector &getX() const {
     return x;
   }
-  const RealVector &getTime() const {
-    return time;
+  const RealVector &getOutputTimes() const {
+    return outTimes;
   }
   void setSolutionVector(int timeStep, double time,
     const RealVector &u);
@@ -50,9 +50,23 @@ public:
     return u;
   }
   void print() const;
+  void close();
+  void setEventsSolution(int timeStep, double time,
+    const RealVector &u, const IntVector &eventsFound);
+  const RealMatrix getEventsSolution() const {
+    return eventsSolution;
+  }
+  const RealVector getEventsTimes() const {
+    return eventsTimes;
+  }
+  const IntVector getEventsIndex() const {
+    return eventsIndex;
+  }
 //private:
   RealMatrix uOde;
 private:
+  int numEvents, numEventsSet;
+  int numTimesSet;
   const RealVector &initialX;
   const RealVector &time;
   RealVector x;
@@ -61,8 +75,11 @@ private:
   const PDE1dDefn &pde;
   const PDEModel &model;
   RealMatrix u;
-  // temporary work storage;
-  RealMatrix u2Tmp;
+  RealVector outTimes;
+  RealMatrix u2Tmp; // temporary work storage;
+  RealMatrix eventsSolution;
+  RealVector eventsTimes;
+  IntVector eventsIndex;
 };
 
 #endif /* PDE1DLIB_PDESOLUTION_H_ */

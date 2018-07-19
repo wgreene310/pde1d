@@ -39,6 +39,7 @@ class ShapeFunctionManager;
 class SunVector;
 class PDEMeshMapper;
 class PDEModel;
+class PDEEvents;
 
 class PDE1dImpl {
 public:
@@ -55,6 +56,7 @@ void calcJacobianODE(double time, double alpha, SunVector &u,
 #endif
   void calcJacobian(double time, double alpha, double beta, SunVector &u,
     SunVector &up, SunVector &R, SparseMat &Jac);
+  void calcEvents(double time, const SunVector &u, double *gOut);
   const PDE1dOptions &getOptions() const {
     return options;
   }
@@ -100,12 +102,13 @@ private:
   // temporary arrays for vectorized mode
   RealVector xPts;
   RealMatrix uPts, duPts;
-  std::unique_ptr<FiniteDiffJacobian > finiteDiffJacobian;
+  std::unique_ptr<FiniteDiffJacobian> finiteDiffJacobian;
   void *ida;
   std::unique_ptr<ShapeFunction> sf;
   std::unique_ptr<ShapeFunctionManager> sfm;
   std::unique_ptr<PDEMeshMapper> meshMapper;
   std::unique_ptr<PDEModel> pdeModel;
+  std::unique_ptr<PDEEvents> pdeEvents;
   RealVector v, vDot, odeF;
   RealMatrix odeU, odeDuDx, odeFlux, odeDuDt, odeDuDxDt;
   size_t numViewElemsPerElem;

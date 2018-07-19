@@ -64,6 +64,11 @@ public:
     const RealMatrix &u, const RealMatrix &DuDx, const RealMatrix &R,
     const RealMatrix &odeDuDt, const RealMatrix &odeDuDxDt,
     RealVector &f);
+  void setEventsFunction(const mxArray *eventsFun);
+  virtual int getNumEvents() const { return numEvents; }
+  virtual void evalEvents(double t, const RealMatrix &u,
+    RealVector &eventsVal, RealVector &eventsIsTerminal,
+    RealVector &eventsDirection);
 private:
   static void setScalar(double x, mxArray *a) {
     const int vr = 1, vc = 1;
@@ -86,32 +91,51 @@ private:
     }
     std::copy_n(ea.data(), s, mxGetPr(a));
   }
-  static void setVector(const RealVector &v, mxArray *a) {
-    setMxImpl(v, a);
+  template<class T>
+  static void setVector(const T &v, mxArray *a) {
+    size_t s = v.size();
+    if (s != mxGetM(a) || mxGetN(a) != 1) {
+      double *pr = (double*)mxRealloc(mxGetPr(a), s * sizeof(double));
+      mxSetM(a, s);
+      mxSetN(a, 1);
+      mxSetPr(a, pr);
+    }
+    std::copy_n(v.data(), s, mxGetPr(a));
   }
   static void setMatrix(const RealMatrix &v, mxArray *a) {
     setMxImpl(v, a);
   }
   void setNumPde();
   void setNumOde();
+  void setNumEvents();
+  void callMatlab(const mxArray *inArgs[], int nargin);
   void callMatlab(const mxArray *inArgs[], int nargin,
     RealVector *outArgs[], int nargout);
   void callMatlab(const mxArray *inArgs[], int nargin,
     RealMatrix *outArgs[], int nargout);
   void callMatlab(const mxArray *inArgs[], int nargin, int nargout);
-  static std::string getFuncNameFromHandle(const mxArray *fh);
-  static void destroy(mxArray *a);
-  int mCoord, numPDE, numODE;
+  static std::string getFuncNameFromHandle(const mxArray *funcHandle);
+  void checkMxType(const mxArray *a, int argIndex, const mxArray *funcHandle);
+  static void destroy(mxArray *a) {
+    // not sure if mex does this test?
+    if (a)
+      mxDestroyArray(a);
+  }
+  int mCoord, numPDE, numODE, numEvents;
   RealVector mesh, tSpan, odeMeshVec;
   const mxArray *pdefun, *icfun, *bcfun, *xmesh, *tspan;
   const mxArray *odefun, *odeIcFun, *odeMesh;
 
   mxArray *mxX1, *mxX2, *mxT; // scalar x and t
-  mxArray *mxVec1, *mxVec2; // input to pde function
+  mxArray *mxVec1, *mxVec2, *mxMat1, *mxMat2; // input to pde function
   mxArray *mxV, *mxVDot, *mxOdeU, *mxOdeDuDx, *mxOdeR, 
     *mxOdeDuDt, *mxOdeDuDxDt;
   static const int maxMatlabRetArgs = 4;
   mxArray *matOutArgs[maxMatlabRetArgs];
+
+  const mxArray *eventsFun;
+  mxArray *mxM;
+  mxArray *mxEventsU; // solution at mesh points
 };
 
 #ifdef _MSC_VER

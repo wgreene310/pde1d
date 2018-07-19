@@ -66,6 +66,8 @@ PDE1dMexInt::PDE1dMexInt(int m, const mxArray *pdefun, const mxArray *icfun,
   setNumPde();
   mxVec1 = mxCreateDoubleMatrix(numPDE, 1, mxREAL);
   mxVec2 = mxCreateDoubleMatrix(numPDE, 1, mxREAL);
+  mxMat1 = mxCreateDoubleMatrix(numPDE, numMesh, mxREAL);
+  mxMat2 = mxCreateDoubleMatrix(numPDE, numMesh, mxREAL);
   odefun = 0;
   odeIcFun = 0;
   odeMesh = 0;
@@ -77,6 +79,10 @@ PDE1dMexInt::PDE1dMexInt(int m, const mxArray *pdefun, const mxArray *icfun,
   mxOdeR = 0;
   mxOdeDuDt = 0;
   mxOdeDuDxDt = 0;
+  eventsFun = 0;
+  numEvents = 0;
+  mxM = 0;
+  mxEventsU = 0;
 }
 
 
@@ -87,6 +93,8 @@ PDE1dMexInt::~PDE1dMexInt()
   mxDestroyArray(mxT);
   mxDestroyArray(mxVec1);
   mxDestroyArray(mxVec2);
+  destroy(mxMat1);
+  destroy(mxMat2);
   destroy(mxV);
   destroy(mxVDot);
   destroy(mxOdeU);
@@ -94,13 +102,8 @@ PDE1dMexInt::~PDE1dMexInt()
   destroy(mxOdeR);
   destroy(mxOdeDuDt);
   destroy(mxOdeDuDxDt);
-}
-
-void PDE1dMexInt::destroy(mxArray *a)
-{
-  // not sure if mex does this test?
-  if (a)
-    mxDestroyArray(a);
+  destroy(mxM);
+  destroy(mxEventsU);
 }
 
 void PDE1dMexInt::setODEDefn(const mxArray *odeFun, const mxArray *icFun,
@@ -119,6 +122,14 @@ void PDE1dMexInt::setODEDefn(const mxArray *odeFun, const mxArray *icFun,
   mxOdeDuDt = mxCreateDoubleMatrix(numXi, 1, mxREAL);
   mxOdeDuDxDt = mxCreateDoubleMatrix(numXi, 1, mxREAL);
   odeMeshVec = MexInterface::fromMxArrayVec(odeMesh);
+}
+
+void PDE1dMexInt::setEventsFunction(const mxArray *eventsFun) {
+  if (!eventsFun) return;
+  this->eventsFun = eventsFun;
+  setNumEvents();
+  mwSize nn = static_cast<mwSize>(mesh.size());
+  mxEventsU = mxCreateDoubleMatrix(nn*numPDE, 1, mxREAL);
 }
 
 void PDE1dMexInt::evalIC(double x, RealVector &ic)
@@ -189,8 +200,8 @@ void PDE1dMexInt::evalPDE(const RealVector &x, double t,
   // [c,f,s] = heatpde(x,t,u,DuDx)
   setMatrix(x.transpose(), mxX1);
   setScalar(t, mxT);
-  setMatrix(u, mxVec1);
-  setMatrix(DuDx, mxVec2);
+  setMatrix(u, mxMat1);
+  setMatrix(DuDx, mxMat2);
   const int nargout = 3;
   int nargin = 5;
   if (numODE) {
@@ -198,7 +209,7 @@ void PDE1dMexInt::evalPDE(const RealVector &x, double t,
     setVector(v, mxV);
     setVector(vDot, mxVDot);
   }
-  const mxArray *funcInp[] = { pdefun, mxX1, mxT, mxVec1, mxVec2,
+  const mxArray *funcInp[] = { pdefun, mxX1, mxT, mxMat1, mxMat2,
   mxV, mxVDot};
   RealMatrix *outArgs[] = { &pde.c, &pde.f, &pde.s };
   callMatlab(funcInp, nargin, outArgs, nargout);
@@ -226,6 +237,22 @@ void PDE1dMexInt::evalODE(double t, const RealVector &v,
   callMatlab(funcInp, nargin, outArgs, nargout);
 }
 
+void PDE1dMexInt::evalEvents(double t, const RealMatrix &u,
+  RealVector &eventsVal, RealVector &eventsIsTerminal, 
+  RealVector &eventsDirection)
+{
+  // [value,isterminal,direction] = events(m,t,xmesh,umesh)
+  eventsIsTerminal.setZero();
+  eventsDirection.setZero();
+  setScalar(t, mxT);
+  setMatrix(u, mxEventsU);
+  const mxArray *funcInp[] = { eventsFun, mxM, mxT, xmesh, mxEventsU };
+  RealVector *outArgs[] = {&eventsVal, &eventsIsTerminal, &eventsDirection};
+  const int nargout = 3;
+  const int nargin = 5;
+  callMatlab(funcInp, nargin, outArgs, nargout);
+}
+
 const RealVector &PDE1dMexInt::getMesh() const {
   return mesh;
 }
@@ -237,10 +264,9 @@ const RealVector &PDE1dMexInt::getODEMesh()
 
 const RealVector &PDE1dMexInt::getTimeSpan() const { return tSpan; }
 
-void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
-  RealVector *outArgs[], int nargout)
-{
-  int err = mexCallMATLAB(nargout, matOutArgs, nargin,
+void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin) {
+  std::fill_n(matOutArgs, maxMatlabRetArgs, nullptr);
+  int err = mexCallMATLAB(maxMatlabRetArgs, matOutArgs, nargin,
     const_cast<mxArray**>(inArgs), "feval");
   if (err) {
     char msg[1024];
@@ -249,6 +275,12 @@ void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
       funcName.c_str());
     mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:err", msg);
   }
+}
+
+void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
+  RealVector *outArgs[], int nargout)
+{
+  callMatlab(inArgs, nargin);
   for (int i = 0; i < nargout; i++) {
     mxArray *a = matOutArgs[i];
     if (! a)
@@ -264,24 +296,16 @@ void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
         " was expected.", funcName.c_str(), i + 1, m, n, exLen);
       mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:arglen", msg);
     }
+    checkMxType(a, i, inArgs[0]);
     std::copy_n(mxGetPr(a), retLen, outArgs[i]->data());
-    if (a)
-      mxDestroyArray(a);
+    destroy(a);
   }
 }
 
 void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
   RealMatrix *outArgs[], int nargout)
 {
-  int err = mexCallMATLAB(nargout, matOutArgs, nargin,
-    const_cast<mxArray**>(inArgs), "feval");
-  if (err) {
-    char msg[1024];
-    std::string funcName = getFuncNameFromHandle(inArgs[0]);
-    sprintf(msg, "An error occurred in the call to user-defined function:\n\"%s\".",
-      funcName.c_str());
-    mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:err", msg);
-  }
+  callMatlab(inArgs, nargin);
   for (int i = 0; i < nargout; i++) {
     mxArray *a = matOutArgs[i];
     if (!a)
@@ -294,35 +318,49 @@ void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
       char msg[1024];
       std::string funcName = getFuncNameFromHandle(inArgs[0]);
       int m = mxGetM(a), n = mxGetN(a);
-      sprintf(msg, "In the call to user-defined function:\n\"%s\"\n"
+      sprintf(msg, "In the call to user-defined function, \"%s\"\n"
         "returned entry %d had size (%zd x %zd) but a matrix of size (%zd x %zd)"
         " was expected.", funcName.c_str(), i + 1, retRows, retCols, 
         exRows, exCols);
       mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:arglen", msg);
     }
+    checkMxType(a, i, inArgs[0]);
     std::copy_n(mxGetPr(a), retRows*retCols, outArgs[i]->data());
-    if (a)
-      mxDestroyArray(a);
+    destroy(a);
   }
 }
 
 void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin, int nargout)
 {
-  int err = mexCallMATLAB(nargout, matOutArgs, nargin,
-    const_cast<mxArray**>(inArgs), "feval");
-  if (err) {
-    char msg[1024];
-    std::string funcName = getFuncNameFromHandle(inArgs[0]);
-    sprintf(msg, "An error occurred in the call to user-defined function:\n\"%s\".",
-      funcName.c_str());
-    mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:err", msg);
-  }
+  callMatlab(inArgs, nargin);
   for (int i = 0; i < nargout; i++) {
     mxArray *a = matOutArgs[i];
     if (!a)
       mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:arg", "Error in mexCallMATLAB arg.");
   }
 }
+
+void PDE1dMexInt::checkMxType(const mxArray *a, int argIndex, const mxArray *funcHandle) {
+
+  if (!mxIsDouble(a)) {
+    char msg[1024];
+    std::string funcName = getFuncNameFromHandle(funcHandle);
+    sprintf(msg, "In the call to user-defined function, \"%s\",\n"
+      "returned entry %d was not a double-precision, floating-point array.", 
+      funcName.c_str(), argIndex + 1);
+    mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:argNotNumeric", msg);
+  }
+  if (mxIsComplex(a)) {
+    char msg[1024];
+    std::string funcName = getFuncNameFromHandle(funcHandle);
+    sprintf(msg, "In the call to user-defined function, \"%s\",\n"
+      "returned entry %d was complex.\n"
+      "Complex equations are not currently supported by pde1d.",
+      funcName.c_str(), argIndex + 1);
+    mexErrMsgIdAndTxt("pde1d:mexCallMATLAB:argIsComplex", msg);
+  }
+}
+
 
 void PDE1dMexInt::setNumPde() {
   setScalar(mesh(0), mxX1);
@@ -332,10 +370,16 @@ void PDE1dMexInt::setNumPde() {
     const_cast<mxArray**>(funcInp), "feval");
   if (err)
     mexErrMsgIdAndTxt("pde1d:mexCallMATLAB",
-    "Error in mexCallMATLAB.\n");
+      "Error in mexCallMATLAB.\n");
   numPDE = mxGetNumberOfElements(initCond);
-  if (initCond)
-    mxDestroyArray(initCond);
+  if (numPDE <= 0) {
+    char msg[1024];
+    std::string funcName = getFuncNameFromHandle(icfun);
+    sprintf(msg, "An error occurred in the call to user-defined function, \"%s\"."
+      "Returned matrix had zero-length.", funcName.c_str());
+    mexErrMsgIdAndTxt("pde1d:icFuncIllegal", msg);
+  }
+  destroy(initCond);
 }
 
 void PDE1dMexInt::setNumOde()
@@ -348,9 +392,67 @@ void PDE1dMexInt::setNumOde()
     mexErrMsgIdAndTxt("pde1d:mexCallMATLAB",
     "Error in mexCallMATLAB.\n");
   numODE = mxGetNumberOfElements(initCond);
-  if (initCond)
-    mxDestroyArray(initCond);
+  destroy(initCond);
   //printf("numODE=%d\n", numODE);
+}
+
+void PDE1dMexInt::setNumEvents()
+{
+  //  [value,isterminal,direction] = events(m,t,xmesh,umesh)
+  mxM = mxCreateDoubleScalar(0);
+  int *mxMptr = reinterpret_cast<int*>(mxGetPr(mxM));
+  mxMptr[0] = mCoord;
+  setScalar(tSpan[0], mxT);
+  const size_t numMesh = mesh.size();
+  RealMatrix u(numPDE, numMesh);
+  // get initial conditions at all points in the mesh
+  mxArray *initCond = 0;
+  const mxArray *funcInpIC[] = { icfun, mxX1 };
+  double *mxXptr = mxGetPr(mxX1);
+  for (int i = 0; i < numMesh; i++) {
+    *mxXptr = mesh[i];
+    int err = mexCallMATLAB(1, &initCond, 2,
+      const_cast<mxArray**>(funcInpIC), "feval");
+    if (err)
+      mexErrMsgIdAndTxt("pde1d:mexCallMATLAB",
+        "Error in mexCallMATLAB.\n");
+    int numRet = mxGetNumberOfElements(initCond);
+    if (numRet != numPDE) {
+      char msg[1024];
+      std::string funcName = getFuncNameFromHandle(icfun);
+      sprintf(msg, "Function \"%s\" returned a vector of length %d but a vector "
+        " of length %d was expected.", funcName.c_str(), numRet, numPDE);
+    }
+    std::copy_n(mxGetPr(initCond), numRet, u.col(i).data());
+    destroy(initCond);
+  }
+  setMatrix(u, mxVec1);
+  const mxArray *funcInp[] = { eventsFun, mxM, mxT, xmesh, mxVec1 };
+  int nargin = sizeof(funcInp) / sizeof(funcInp[0]);
+  int nargout = 3;
+  int err = mexCallMATLAB(nargout, matOutArgs, 
+    nargin, const_cast<mxArray**>(funcInp), "feval");
+  if (err)
+    mexErrMsgIdAndTxt("pde1d:mexCallMATLAB",
+      "Error in mexCallMATLAB.\n");
+  if (!matOutArgs[0]) {
+    char msg[1024];
+    std::string funcName = getFuncNameFromHandle(eventsFun);
+    sprintf(msg, "Events function \"%s\" must return at least one argument.",
+      funcName.c_str());
+    mexErrMsgIdAndTxt("pde1d:eventsFuncIllegal", msg);
+  }
+  numEvents = mxGetNumberOfElements(matOutArgs[0]);
+  for (int i = 1; i < nargout; i++) {
+    mxArray *ai = matOutArgs[i];
+    if (ai && mxGetNumberOfElements(ai) != numEvents) {
+      char msg[1024];
+      std::string funcName = getFuncNameFromHandle(eventsFun);
+      sprintf(msg, "The lengths of all vectors returned from events function \"%s\""
+        " must be the same.", funcName.c_str());
+      mexErrMsgIdAndTxt("pde1d:eventsFuncIllegal", msg);
+    }
+  }
 }
 
 std::string PDE1dMexInt::getFuncNameFromHandle(const mxArray *fh)

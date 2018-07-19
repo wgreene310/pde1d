@@ -36,7 +36,7 @@ public:
   {
     mxArray *ma = mxCreateDoubleMatrix(a.rows(), a.cols(), mxREAL);
     double *dest = mxGetPr(ma);
-    const double *src = a.data();
+    const typename T::Scalar *src = a.data();
     std::copy_n(src, a.cols()*a.rows(), dest);
     return ma;
   }

@@ -67,6 +67,7 @@ using std::endl;
 #include "PDEMeshMapper.h"
 #include "PDEModel.h"
 #include "PDESolution.h"
+#include "PDEEvents.h"
 #include <util.h>
 #include "EigenSUNSparseSolver.h"
 
@@ -153,6 +154,11 @@ pde(pde), options(options)
     std::unique_ptr<FiniteDiffJacobian>(new FiniteDiffJacobian(P));
   numViewElemsPerElem=options.getViewMesh();
 
+  int numEvents = pde.getNumEvents();
+  if (numEvents) {
+    pdeEvents =
+      std::unique_ptr<PDEEvents>(new PDEEvents(pde, *pdeModel));
+  }
 }
 
 PDE1dImpl::~PDE1dImpl()
@@ -207,6 +213,14 @@ namespace {
     return 0;
   }
 #endif
+
+  int rootFunc(realtype t, N_Vector y, N_Vector yp,
+    realtype *gout, void *user_data) {
+    SunVector u(y);
+    PDE1dImpl *fem = (PDE1dImpl*) user_data;
+    fem->calcEvents(t, u, gout);
+    return 0;
+  }
 
   void check_flag(const void *flagvalue, const char *funcname, int opt)
   {
@@ -346,6 +360,12 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   SunVector up0Tmp = initCond.getUp0();
   testICCalc(u0Tmp, up0Tmp, res, id, tf);
 #endif
+
+  int numEvents = pde.getNumEvents();
+  if (numEvents) {
+    ier = IDARootInit(ida, numEvents, rootFunc);
+    check_flag(&ier, "IDARootInit", 1);
+  }
   
   //sol.time(0) = tspan(0);
   sol.setSolutionVector(0, 0, initCond.getU0().topRows(numFEEqns));
@@ -354,7 +374,9 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
     sol.uOde.row(0) = initCond.getU0().bottomRows(numODE);
   }
 
-  for (int i = 1; i < numTimes; i++) {
+  bool doTerm = false;
+  int i = 1;
+  while (i< numTimes && ! doTerm) {
     double tout=tspan(i), tret;
     ier = IDASolve(ida, tout, &tret, uu.getNV(), up.getNV(), IDA_NORMAL);
     if (ier < 0) {
@@ -366,11 +388,26 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
         tret);
       throw PDE1dException("pde1d:integ_failure", msg);
     }
-    sol.setSolutionVector(i, tret, u.topRows(numFEEqns));
-    if (numODE)
-      sol.uOde.row(i) = u.bottomRows(numODE);
+    //cout << "tret=" << tret << endl;
+    // events
+    bool eventSatisfied = false;
+    if (ier == IDA_ROOT_RETURN) {
+      eventSatisfied = true;
+      IntVector eventsFound(numEvents);
+      ier = IDAGetRootInfo(ida, eventsFound.data());
+      check_flag(&ier, "IDAGetRootInfo", 1);
+      doTerm = pdeEvents->isTerminalEvent(tret, u, eventsFound);
+      sol.setEventsSolution(i, tret, u.topRows(numFEEqns), eventsFound);
+    }
+    if (!eventSatisfied || doTerm) {
+      sol.setSolutionVector(i, tret, u.topRows(numFEEqns));
+      if (numODE)
+        sol.uOde.row(i) = u.bottomRows(numODE);
+      ++i;
+    }
   }
   printStats();
+  sol.close();
 
   return 0;
 }
@@ -1045,6 +1082,12 @@ void PDE1dImpl::calcJacobian(double time, double alpha, double beta, SunVector &
   const bool useCD = !true; // use central difference approximation, if true
   finiteDiffJacobian->calcJacobian(time, alpha, beta, u.getNV(), up.getNV(), 
     R.getNV(), resFunc, this, Jac, useCD);
+}
+
+void PDE1dImpl::calcEvents(double time, const SunVector &u, 
+  double *gOut)
+{
+  pdeEvents->calcEvents(time, u, gOut);
 }
 
 #if TEST_IC_CALC

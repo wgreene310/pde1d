@@ -58,6 +58,11 @@ public:
     const RealMatrix &odeR, const RealMatrix &odeDuDt,
     const RealMatrix &odeDuDxDt, RealVector &f) = 0;
   virtual const RealVector &getODEMesh() = 0;
+
+  virtual int getNumEvents() const { return 0; }
+  virtual void evalEvents(double t, const RealMatrix &u,
+    RealVector &eventsVal, RealVector &eventsIsTerminal,
+    RealVector &eventsDirection) = 0;
 };
 
 PDESolution pde1d(PDE1dDefn &pde);

@@ -45,11 +45,11 @@ namespace {
     return ma;
   }
 
-  PDE1dOptions getOptions(const mxArray *opts) {
+  void getOptions(const mxArray *opts, PDE1dOptions &pdeOpts,
+    mxArray* &eventFunc) {
     if (!mxIsStruct(opts))
       mexErrMsgIdAndTxt("pde1d:optins_type", 
       "The last options argument to " FUNC_NAME " must be a struct.");
-    PDE1dOptions pdeOpts;
     int n = mxGetNumberOfFields(opts);
     for (int i = 0; i < n; i++) {
       const char *ni = mxGetFieldNameByNumber(opts, i);
@@ -120,6 +120,12 @@ namespace {
             "The value of the \"diagonalMassMatrix\" option must be either \"On\" or \"Off\".");
         pdeOpts.setDiagMassMat(useDiagMassMat);
       }
+      else if (boost::iequals(ni, "events")) {
+        if (!mxIsFunctionHandle(val))
+          mexErrMsgIdAndTxt("pde1d:invalidEventsFunc",
+            "The value of the \"Events\" option must be a function handle.");
+        eventFunc = val;
+      }
       else {
         char msg[1024];
         sprintf(msg, "The options argument contains the field \"%s\".\n"
@@ -128,8 +134,6 @@ namespace {
         mexWarnMsgIdAndTxt("pde1d:unknown_option", msg);
       }
     }
-
-    return pdeOpts;
   }
 }
 
@@ -149,6 +153,8 @@ void mexFunction(int nlhs, mxArray*
 {
   try {
     //printf("nlhs=%d, nrhs=%d\n", nlhs, nrhs); return;
+    // options struct is always the last argument in the
+    // function call
     int optsArg = -1;
     if (nrhs == 7)
       optsArg = 6;
@@ -196,23 +202,42 @@ void mexFunction(int nlhs, mxArray*
       "Length of argument \"timePts\", must be at least three.");
 
     PDE1dOptions opts;
+    mxArray *eventsFunc = 0;
     if (optsArg > 0)
-      opts = getOptions(prhs[optsArg]);
+      getOptions(prhs[optsArg], opts, eventsFunc);
 
     std::fill_n(plhs, nlhs, nullptr);
 
     PDE1dMexInt pde(m, prhs[1], prhs[2], prhs[3],
       prhs[4], prhs[5]);
+    pde.setEventsFunction(eventsFunc);
     if (hasODE) {
       pde.setODEDefn(prhs[6], prhs[7], prhs[8]);
-      if (nlhs > 2)
-        mexErrMsgIdAndTxt("pde1d:nlhs",
-        "pde1d returns only a two matrices when there are included ODEs.");
+      if (eventsFunc) {
+        if (nlhs > 6)
+          mexErrMsgIdAndTxt("pde1d:nlhs",
+            "pde1d returns six or fewer matrices when "
+            "there are events and included ODEs.");
+      }
+      else {
+        if (nlhs > 2)
+          mexErrMsgIdAndTxt("pde1d:nlhs",
+            "pde1d returns only two matrices when there are included ODEs.");
+      }
     }
     else {
-      if (nlhs > 1)
-        mexErrMsgIdAndTxt("pde1d:nlhs",
-        "pde1d returns only a single matrix when there are no ODEs.");
+      // no ODE
+      if (eventsFunc) {
+        if (nlhs > 5)
+          mexErrMsgIdAndTxt("pde1d:nlhs",
+            "pde1d returns five or fewer matrices when "
+            "there are events but no ODEs.");
+      }
+      else {
+        if (nlhs > 1)
+          mexErrMsgIdAndTxt("pde1d:nlhs",
+            "pde1d returns only a single matrix when there are no ODEs.");
+      }
     }
     int numPde = pde.getNumPDE();
     int numOde = pde.getNumODE();
@@ -253,6 +278,7 @@ void mexFunction(int nlhs, mxArray*
       std::copy_n(pdeSol.getSolution().data(), numTimes*numPts*numPde, mxGetPr(sol));
     }
 
+    int lhsIndex = 1;
     if (viewMesh > 1) {
       // return struct for results on a view mesh
       const char *fieldNames[] = { "x", "u", "uOde" };
@@ -269,8 +295,28 @@ void mexFunction(int nlhs, mxArray*
     else {
       plhs[0] = sol;
       // odes are included
-      if (nlhs == 2)
-        plhs[1] = MexInterface::toMxArray(pdeSol.uOde);
+      if (hasODE && nlhs > 1)
+        plhs[lhsIndex++] = MexInterface::toMxArray(pdeSol.uOde);
+    }
+
+    // if we have events, more outputs are possible
+    if (eventsFunc) {
+      if (lhsIndex < nlhs) {
+        // tsol
+        plhs[lhsIndex++] = MexInterface::toMxArray(pdeSol.getOutputTimes());
+      }
+      if (lhsIndex < nlhs) {
+        // sole
+        plhs[lhsIndex++] = MexInterface::toMxArray(pdeSol.getEventsSolution());
+      }
+      if (lhsIndex < nlhs) {
+        // te
+        plhs[lhsIndex++] = MexInterface::toMxArray(pdeSol.getEventsTimes());
+      }
+      if (lhsIndex < nlhs) {
+        // ie
+        plhs[lhsIndex++] = MexInterface::toMxArray(pdeSol.getEventsIndex());
+      }
     }
 
   }
