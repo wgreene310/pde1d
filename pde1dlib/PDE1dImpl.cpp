@@ -374,6 +374,10 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
     sol.uOde.row(0) = initCond.getU0().bottomRows(numODE);
   }
 
+  // optionally, calc and print jacobian matrices
+  if(options.getJacDiagnostics())
+     jacobianDiagnostics(uu, up, res);
+
   bool doTerm = false;
   int i = 1;
   while (i< numTimes && ! doTerm) {
@@ -768,6 +772,39 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
     R.bottomRows(numODE) = odeF;
   }
 }
+
+  void PDE1dImpl::jacobianDiagnostics( SunVector &u,
+     SunVector &up, SunVector &R)
+  {
+    int jacDiag = options.getJacDiagnostics();
+    if (!jacDiag)
+      return;
+
+    R.setZero();
+    calcRHSODE(0, u, up, R);
+    cout << "Residual:\n" << R.transpose() << endl;
+
+    bool printDense = numFEEqns <= 12;
+    SparseMat jac(numFEEqns, numFEEqns);
+    calcJacobian(0, 1, 0, u, up, R, jac);
+    cout << "DfDu:\n";
+    if(printDense)
+      cout << jac.toDense();
+    else
+      cout << jac;
+    cout << endl;
+
+    calcJacobian(0, 0, 1, u, up, R, jac);
+    cout << "DfDuDot:\n";
+    if (printDense)
+      cout << jac.toDense();
+    else
+      cout << jac;
+    cout << endl;
+
+    if(abs(jacDiag) > 1)
+    throw PDE1dException("pde1d:testJacobian", "Test complete.");
+  }
 
 void PDE1dImpl::testMats()
 {

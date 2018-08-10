@@ -36,12 +36,14 @@ bool PDEEvents::isTerminalEvent(double time, const RealVector &u,
     eventsDirection);
   for (int j = 0; j < numEvents; j++) {
     int jFlag = eventsFound(j);
+#if 0
     printf("Event %d: jFlag=%d, eventsVal=%12.3e, "
       "eventsIsTerminal=%g, eventsDirection=%g\n",
       j, jFlag, eventsVal(j), eventsIsTerminal(j),
       eventsDirection(j));
+#endif
     if (jFlag && eventsIsTerminal(j)) {
-      printf("terminating on event=%d, tret=%12.4e\n", j, time);
+      //printf("terminating on event=%d, tret=%12.4e\n", j, time);
       doTerm = true;
     }
   }

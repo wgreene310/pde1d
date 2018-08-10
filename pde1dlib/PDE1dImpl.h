@@ -66,7 +66,6 @@ void calcJacobianODE(double time, double alpha, SunVector &u,
   const PDEModel &getModel() const {
     return *pdeModel;
   }
-  void testMats();
 private:
   void calcGlobalEqns(double t, SunVector &u, SunVector &up, 
     RealVector &Cxd, RealVector &F, RealVector &S);
@@ -88,6 +87,9 @@ private:
   template<class T>
   void interpolateGlobalVecToViewMesh(const T &gVec,
     RealMatrix &viewVec);
+  void jacobianDiagnostics( SunVector &u,
+     SunVector &up, SunVector &R);
+  void testMats();
   PDE1dDefn &pde;
   PDE1dOptions &options;
   RealVector mesh, tspan;

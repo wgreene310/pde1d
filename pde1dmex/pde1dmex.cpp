@@ -98,6 +98,10 @@ namespace {
         int icDiag = (int) mxGetScalar(val);
         pdeOpts.setICDiagnostics(icDiag);
       }
+      else if (boost::iequals(ni, "jacdiagnostics")) {
+        int jacDiag = (int) mxGetScalar(val);
+        pdeOpts.setJacDiagnostics(jacDiag);
+      }
       else if (boost::iequals(ni, "polyorder")) {
         int porder = (int)mxGetScalar(val);
         pdeOpts.setPolyOrder(porder);

@@ -25,6 +25,7 @@ public:
     maxSteps = 10000;
     ICMethod = 0;
     ICDiagnostics = 0;
+    jacDiagnostics = 0;
     polyOrder = 1;
     viewMesh = 1;
     useDiagMassMat = false;
@@ -43,6 +44,8 @@ public:
   void setICMethod(int meth) { ICMethod = meth;  }
   int getICDiagnostics() const { return ICDiagnostics;  }
   void setICDiagnostics(int diag) { ICDiagnostics = diag; }
+  int getJacDiagnostics() const { return jacDiagnostics; }
+  void setJacDiagnostics(int diag) { jacDiagnostics = diag; }
   void setPolyOrder(int pOrder) { polyOrder = pOrder;  }
   int getPolyOrder() const {
     return polyOrder;
@@ -64,6 +67,7 @@ private:
   bool stats;
   int ICMethod;
   int ICDiagnostics;
+  int jacDiagnostics;
   int polyOrder;
   int viewMesh;
   bool useDiagMassMat;
