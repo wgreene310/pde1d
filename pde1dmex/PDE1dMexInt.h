@@ -108,7 +108,7 @@ private:
   void setNumPde();
   void setNumOde();
   void setNumEvents();
-  void callMatlab(const mxArray *inArgs[], int nargin);
+  //void callMatlab(const mxArray *inArgs[], int nargin, int nargout);
   void callMatlab(const mxArray *inArgs[], int nargin,
     RealVector *outArgs[], int nargout);
   void callMatlab(const mxArray *inArgs[], int nargin,

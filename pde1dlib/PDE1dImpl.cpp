@@ -150,6 +150,14 @@ pde(pde), options(options)
   calcJacPattern(P);
   numNonZerosJacMax = P.nonZeros();
   //cout << "P\n" << P << endl;
+  if (options.getJacDiagnostics()) {
+    cout << "Jacobian Pattern:\n";
+    if (numFEEqns <= 20)
+      cout << P.toDense();
+    else
+      cout << P;
+    cout << endl;
+  }
   finiteDiffJacobian = 
     std::unique_ptr<FiniteDiffJacobian>(new FiniteDiffJacobian(P));
   numViewElemsPerElem=options.getViewMesh();
@@ -268,7 +276,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   }
 
 #if CALL_TEST_FUNC
-  testMats();
+  testMats(y0);
   //sol.setSolutionVector(0, 0, y0);
   return 0;
 #endif
@@ -289,7 +297,6 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   double initResNorm = resVec.dot(resVec);
   printf("initResNorm=%12.3e\n", sqrt(initResNorm));
 #endif
-  setAlgVarFlags(uu, up, id);
 
   /* Call IDACreate and IDAMalloc to initialize solution */
   ida = IDACreate();
@@ -297,14 +304,16 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
 
   int ier = IDASetUserData(ida, this);
   check_flag(&ier, "IDASetUserData", 1);
-  ier = IDASetId(ida, id.getNV());
-  check_flag(&ier, "IDASetId", 1);
-#if 1
+  if (!options.getICMethod() || numODE) {
+    setAlgVarFlags(uu, up, id);
+    ier = IDASetId(ida, id.getNV());
+    check_flag(&ier, "IDASetId", 1);
+  }
   if (numODE) {
+    // IDASetId needed for this call
     ier = IDASetSuppressAlg(ida, true);
     check_flag(&ier, "IDASetSuppressAlg", 1);
   }
-#endif
   double t0 = tspan(0), tf = tspan(numTimes-1);
   PDEInitConditions initCond(ida, *this, uu, up);
   PDEInitConditions::ICPair icPair = initCond.init();
@@ -376,7 +385,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
 
   // optionally, calc and print jacobian matrices
   if(options.getJacDiagnostics())
-     jacobianDiagnostics(uu, up, res);
+     jacobianDiagnostics(tspan(0), uu, up, res);
 
   bool doTerm = false;
   int i = 1;
@@ -770,10 +779,16 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
     pde.evalODE(time, v, vDot, odeU, odeDuDx, odeFlux, 
       odeDuDt, odeDuDxDt, odeF);
     R.bottomRows(numODE) = odeF;
+
+    // add lagrange multiplier terms
+#if 0
+    RealMatrix dOduDu = calcDOdeDu(time, odeU,
+      ypFE, r2, v, vdot);
+#endif
   }
 }
 
-  void PDE1dImpl::jacobianDiagnostics( SunVector &u,
+  void PDE1dImpl::jacobianDiagnostics(double t0, SunVector &u,
      SunVector &up, SunVector &R)
   {
     int jacDiag = options.getJacDiagnostics();
@@ -786,7 +801,7 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
 
     bool printDense = numFEEqns <= 12;
     SparseMat jac(numFEEqns, numFEEqns);
-    calcJacobian(0, 1, 0, u, up, R, jac);
+    calcJacobian(t0, 1, 0, u, up, R, jac);
     cout << "DfDu:\n";
     if(printDense)
       cout << jac.toDense();
@@ -794,7 +809,7 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
       cout << jac;
     cout << endl;
 
-    calcJacobian(0, 0, 1, u, up, R, jac);
+    calcJacobian(t0, 0, 1, u, up, R, jac);
     cout << "DfDuDot:\n";
     if (printDense)
       cout << jac.toDense();
@@ -806,14 +821,19 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
     throw PDE1dException("pde1d:testJacobian", "Test complete.");
   }
 
-void PDE1dImpl::testMats()
+void PDE1dImpl::testMats(const RealVector &y0)
 {
   cout << "numFEEqns=" << numFEEqns << endl;
   SunVector u(numFEEqns), up(numFEEqns), R(numFEEqns);
+#if 0
   for (int i = 0; i < numFEEqns; i++) {
     u(i) = 0;
     up(i) = 1;
   }
+#else
+  u = y0;
+  up = u;
+#endif
 #if 1
   cout << "u=" << u.transpose() << endl;
   RealVector Cxd = RealVector::Zero(numFEEqns);
@@ -938,7 +958,7 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0, SunVector &y0p, SunVector &id)
     MapMat  yp0FE(y0p.data(), numDepVars, nnfe);
     v = y0.bottomRows(numODE);
     vDot = y0p.bottomRows(numODE);
-    RealMatrix odeJac = calcODEJacobian(t0, y0FE, yp0FE, f2, v, vDot);
+    RealMatrix odeJac = calcDOdeDvDot(t0, y0FE, yp0FE, f2, v, vDot);
     //cout << "odeJac:\n" << odeJac << endl;
     for (int i = 0; i < numODE; i++) {
       auto rci = odeJac.row(i) + odeJac.col(i).transpose();
@@ -949,7 +969,7 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0, SunVector &y0p, SunVector &id)
   }
 }
 
-RealMatrix PDE1dImpl::calcODEJacobian(double time, const RealMatrix &yFE, 
+RealMatrix PDE1dImpl::calcDOdeDvDot(double time, const RealMatrix &yFE,
   const RealMatrix &ypFE, const RealMatrix &f2, RealVector &v, RealVector &vdot)
 {
   RealMatrix jac(numODE, numODE);
@@ -974,6 +994,14 @@ RealMatrix PDE1dImpl::calcODEJacobian(double time, const RealMatrix &yFE,
   }
   return jac;
 }
+
+RealMatrix PDE1dImpl::calcDOdeDu(double time, const RealMatrix &yFE,
+  const RealMatrix &ypFE, const RealMatrix &r2, RealVector &v, RealVector &vdot)
+{
+  RealMatrix jac(numODE, numFEEqns);
+  return jac;
+}
+
 
 void PDE1dImpl::checkIncreasing(const RealVector &v, 
   int argNum, const char *argName)

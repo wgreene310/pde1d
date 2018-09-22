@@ -158,7 +158,20 @@ if(${LINEAR_SOLVER} STREQUAL KLU)
 target_link_libraries(pde1d PRIVATE ${SUITESPARSE_LIBS})
 endif()
 
+string(TOLOWER ${PSE} PSEL)
+if(${PSEL} STREQUAL matlab)
+if(${CMAKE_SYSTEM_NAME} STREQUAL Windows)
+set(mexext mexw64)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
+set(mexext mexa64)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
+set(mexext mexmaci64)
+endif()
+else()
+  set(mexext mex)
+endif()
+
 add_custom_command(TARGET pde1d POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different # which executes "cmake - E copy_if_different..."      
 				$<TARGET_FILE:pde1d>
-        "${CMAKE_INSTALL_PREFIX}/pde1d.mex") 
+        "${CMAKE_INSTALL_PREFIX}/pde1d.${mexext}") 

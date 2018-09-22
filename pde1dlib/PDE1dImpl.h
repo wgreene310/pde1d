@@ -74,7 +74,9 @@ private:
   template<class T, class TR>
   void calcGlobalEqnsVectorized(double t, T &u, T &up, TR &Cxd, TR &F, TR &S);
   void setAlgVarFlags(SunVector &y0, SunVector &y0p, SunVector &id);
-  RealMatrix calcODEJacobian(double time, const RealMatrix &yFE, 
+  RealMatrix calcDOdeDvDot(double time, const RealMatrix &yFE, 
+    const RealMatrix &ypFE, const RealMatrix &r2, RealVector &v, RealVector &vdot);
+  RealMatrix calcDOdeDu(double time, const RealMatrix &yFE,
     const RealMatrix &ypFE, const RealMatrix &r2, RealVector &v, RealVector &vdot);
   void checkIncreasing(const RealVector &v, int argNum, const char *argName);
   void checkCoeffs(const PDE1dDefn::PDECoeff &coeffs);
@@ -87,9 +89,9 @@ private:
   template<class T>
   void interpolateGlobalVecToViewMesh(const T &gVec,
     RealMatrix &viewVec);
-  void jacobianDiagnostics( SunVector &u,
+  void jacobianDiagnostics(double t0, SunVector &u,
      SunVector &up, SunVector &R);
-  void testMats();
+  void testMats(const RealVector &y0);
   PDE1dDefn &pde;
   PDE1dOptions &options;
   RealVector mesh, tspan;

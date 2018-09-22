@@ -33,4 +33,9 @@ private:
   std::string id, msg;
 };
 
+inline void pdeErrMsgIdAndTxt(const char *id, const char *msg)
+{
+  throw PDE1dException(id, msg);
+}
+
 #endif

@@ -48,7 +48,7 @@ namespace {
   void getOptions(const mxArray *opts, PDE1dOptions &pdeOpts,
     mxArray* &eventFunc) {
     if (!mxIsStruct(opts))
-      mexErrMsgIdAndTxt("pde1d:optins_type", 
+      pdeErrMsgIdAndTxt("pde1d:optins_type", 
       "The last options argument to " FUNC_NAME " must be a struct.");
     int n = mxGetNumberOfFields(opts);
     for (int i = 0; i < n; i++) {
@@ -68,7 +68,7 @@ namespace {
         else if (boost::iequals(buf, "off"))
           isVec = false;
         else
-          mexErrMsgIdAndTxt("pde1d:invalidVectorized",
+          pdeErrMsgIdAndTxt("pde1d:invalidVectorized",
           "The value of the \"Vectorized\" option must be either \"On\" or \"Off\".");
         pdeOpts.setVectorized(isVec);
       }
@@ -86,7 +86,7 @@ namespace {
         else if (boost::iequals(buf, "off"))
           doStats = false;
         else
-          mexErrMsgIdAndTxt("pde1d:invalidStats",
+          pdeErrMsgIdAndTxt("pde1d:invalidStats",
           "The value of the \"Stats\" option must be either \"On\" or \"Off\".");
         pdeOpts.setPrintStats(doStats);
       }
@@ -120,13 +120,13 @@ namespace {
         else if (boost::iequals(buf, "off"))
           useDiagMassMat = false;
         else
-          mexErrMsgIdAndTxt("pde1d:invalidMassMat",
+          pdeErrMsgIdAndTxt("pde1d:invalidMassMat",
             "The value of the \"diagonalMassMatrix\" option must be either \"On\" or \"Off\".");
         pdeOpts.setDiagMassMat(useDiagMassMat);
       }
       else if (boost::iequals(ni, "events")) {
         if (!mxIsFunctionHandle(val))
-          mexErrMsgIdAndTxt("pde1d:invalidEventsFunc",
+          pdeErrMsgIdAndTxt("pde1d:invalidEventsFunc",
             "The value of the \"Events\" option must be a function handle.");
         eventFunc = val;
       }
@@ -165,44 +165,44 @@ void mexFunction(int nlhs, mxArray*
     else if (nrhs == 10)
       optsArg = 9;
     else if (nrhs != 6 && nrhs != 9)
-      mexErrMsgIdAndTxt("pde1d:nrhs",
-      "Illegal number of input arguments passed to " FUNC_NAME);
+      pdeErrMsgIdAndTxt("pde1d:nrhs",
+        "Illegal number of input arguments passed to " FUNC_NAME);
 
     const bool hasODE = nrhs > 7;
 
     const mxArray *pM = prhs[0];
     if (!mxIsNumeric(pM) || mxGetNumberOfElements(pM) != 1) {
-      mexErrMsgIdAndTxt("pde1d:invalid_m_type",
+      pdeErrMsgIdAndTxt("pde1d:invalid_m_type",
         "First argument must be an integer scalar.");
     }
 
     int m = (int)mxGetScalar(pM);
     if (m != 0 && m != 1 && m != 2)
-      mexErrMsgIdAndTxt("pde1d:invalid_m_val",
+      pdeErrMsgIdAndTxt("pde1d:invalid_m_val",
       "First argument must be either 0, 1, or 2");
 
     for (int i = 1; i < 4; i++) {
       if (!mxIsFunctionHandle(prhs[i])) {
         char msg[80];
         sprintf(msg, "Argument %d is not a function handle.", i + 1);
-        mexErrMsgIdAndTxt("pde1d:arg_not_func", msg);
+        pdeErrMsgIdAndTxt("pde1d:arg_not_func", msg);
       }
     }
 
     const mxArray *pX = prhs[4];
     const mxArray *pT = prhs[5];
     if (!mxIsNumeric(pX) || mxIsComplex(pX))
-      mexErrMsgIdAndTxt("pde1d:mesh_type",
+      pdeErrMsgIdAndTxt("pde1d:mesh_type",
       "Argument \"meshPts\" must be a real vector.");
     if (mxGetNumberOfElements(pX) < 2)
-      mexErrMsgIdAndTxt("pde1d:mesh_length",
+      pdeErrMsgIdAndTxt("pde1d:mesh_length",
       "Length of argument \"meshPts\", must be at least two.");
 
     if (!mxIsNumeric(pT) || mxIsComplex(pT))
-      mexErrMsgIdAndTxt("pde1d:time_type",
+      pdeErrMsgIdAndTxt("pde1d:time_type",
       "Argument \"timePts\" must be a real vector.");
     if (mxGetNumberOfElements(pT) < 3)
-      mexErrMsgIdAndTxt("pde1d:time_length",
+      pdeErrMsgIdAndTxt("pde1d:time_length",
       "Length of argument \"timePts\", must be at least three.");
 
     PDE1dOptions opts;
@@ -219,13 +219,13 @@ void mexFunction(int nlhs, mxArray*
       pde.setODEDefn(prhs[6], prhs[7], prhs[8]);
       if (eventsFunc) {
         if (nlhs > 6)
-          mexErrMsgIdAndTxt("pde1d:nlhs",
+          pdeErrMsgIdAndTxt("pde1d:nlhs",
             "pde1d returns six or fewer matrices when "
             "there are events and included ODEs.");
       }
       else {
         if (nlhs > 2)
-          mexErrMsgIdAndTxt("pde1d:nlhs",
+          pdeErrMsgIdAndTxt("pde1d:nlhs",
             "pde1d returns only two matrices when there are included ODEs.");
       }
     }
@@ -233,13 +233,13 @@ void mexFunction(int nlhs, mxArray*
       // no ODE
       if (eventsFunc) {
         if (nlhs > 5)
-          mexErrMsgIdAndTxt("pde1d:nlhs",
+          pdeErrMsgIdAndTxt("pde1d:nlhs",
             "pde1d returns five or fewer matrices when "
             "there are events but no ODEs.");
       }
       else {
         if (nlhs > 1)
-          mexErrMsgIdAndTxt("pde1d:nlhs",
+          pdeErrMsgIdAndTxt("pde1d:nlhs",
             "pde1d returns only a single matrix when there are no ODEs.");
       }
     }
@@ -261,7 +261,7 @@ void mexFunction(int nlhs, mxArray*
 #endif
     mxArray *sol;
     if (numPde > 1) {
-      mwSize ndims, dims[] = { numTimes, numPts, numPde };
+      mwSize ndims, dims[] = { (mwSize) numTimes, (mwSize) numPts, (mwSize) numPde };
       ndims = 3;
       typedef boost::const_multi_array_ref<double, 3> Matrix3;
       boost::array<Matrix3::index, 3> shape =
