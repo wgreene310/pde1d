@@ -41,8 +41,8 @@ namespace {
     mexPrintf("%s(%d,%d)\n", name, m, n);
     for (size_t i = 0; i < m; i++) {
       for (size_t j = 0; j < n; j++)
-        printf("%g ", A(i, j));
-      printf("\n");
+        mexPrintf("%g ", A(i, j));
+      mexPrintf("\n");
     }
   }
 

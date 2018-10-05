@@ -115,7 +115,9 @@ void PDEInitConditions::calcShampineAlgo(double t0,
     // rms tolerance
     double resRms = sqrt(res.dot(res)) / (double)numEqns;
     if (diag)
-      printf("IC: iter = %d, resRms=%12.3e\n", it, resRms);
+      pdePrintf("IC: iter = %d, resRms=%12.3e\n", it, resRms);
+    if (diag > 1)
+      cout << "res=" << res.transpose() << endl;
     if (resRms < absTol) {
       converged = true;
       break;
@@ -124,14 +126,12 @@ void PDEInitConditions::calcShampineAlgo(double t0,
     // max tolerance
     auto absRes = res.array().abs();
     maxRes = absRes.maxCoeff();
-    printf("iter = %d, maxRes=%12.3e\n", it, maxRes);
+    pdePrintf("iter = %d, maxRes=%12.3e\n", it, maxRes);
     if ((absRes < options.getAbsTol()).all()) {
       converged = true;
       break;
     }
 #endif
-    if (diag > 1)
-      cout << "res=" << res.transpose() << endl;
     pdeImpl.calcJacobian(t0, 1, 0, yNew, ypNew, res, dfDy);
     pdeImpl.calcJacobian(t0, 0, 1, yNew, ypNew, res, dfDyp);
     if (diag > 2) {
@@ -155,7 +155,7 @@ void PDEInitConditions::calcShampineAlgo(double t0,
     size_t rnk = qr.rank();
     size_t numAlgVars = numEqns - rnk;
     if(diag)
-      printf("IC: numEqns=%zd, rnk=%zd, numAlgVars=%zd\n",
+      pdePrintf("IC: numEqns=%zd, rnk=%zd, numAlgVars=%zd\n",
       numEqns, rnk, numAlgVars);
 
 #if 0
@@ -218,7 +218,7 @@ void PDEInitConditions::calcShampineAlgo(double t0,
   }
 
   if (!converged) {
-    printf("Unable to obtain a consistent set of initial conditions.\n"
+    pdePrintf("Unable to obtain a consistent set of initial conditions.\n"
       "Maximum error in the residual is %12.3e.\n", maxRes);
   }
 }

@@ -13,7 +13,9 @@
 // You should have received a copy of the GNU General Public License along with
 // this program; if not, see <http://www.gnu.org/licenses/>.
 
+#include <iostream>
 #include <stdio.h>
+#include <cstdarg>
 
 #include "util.h"
 
@@ -21,16 +23,27 @@ void print(N_Vector v, const char *title) {
   double *d = NV_DATA_S(v);
   int len = NV_LENGTH_S(v);
   int count = 0;
-  printf("Vector: %s(%d)\n", title, len);
+  pdePrintf("Vector: %s(%d)\n", title, len);
   for (int i = 0; i < len; i++) {
-    printf(" %14.9e", d[i]);
+    pdePrintf(" %14.9e", d[i]);
     if (++count == 6) {
-      printf("\n");
+      pdePrintf("\n");
       count = 0;
     }
   }
   if (count)
-    printf("\n");
+    pdePrintf("\n");
+}
+
+void pdePrintf(const char * format, ...)
+{
+  va_list ap;
+  va_start(ap, format);
+  char msg[4096];
+  vsprintf(msg, format, ap);
+  va_end(ap);
+  // matlab mex connects cout to console but not printf
+  std::cout << msg;
 }
 
 Eigen::VectorXd linspace(double start, double end, int n)

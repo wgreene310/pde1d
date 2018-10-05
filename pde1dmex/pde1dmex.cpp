@@ -255,7 +255,7 @@ void mexFunction(int nlhs, mxArray*
     int numTimes = pdeSol.numTimePoints();
     int numPts = pdeSol.numSpatialPoints();
 #if 0
-    printf("numTimes=%d, numPde=%d, numPts=%d\n",
+    mexPrintf("numTimes=%d, numPde=%d, numPts=%d\n",
     numTimes, numPde, numPts);
     pdeSol.print();
 #endif

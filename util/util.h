@@ -20,18 +20,20 @@
 
 void print(N_Vector v, const char *title);
 
+void pdePrintf(const char * format, ...);
+
 Eigen::VectorXd linspace(double a, double b, int n);
 
 template<class T>
 void printMat(const T &a, const char *title, const char *format = "%16.9e,") {
   const size_t m = a.rows();
   const size_t n = a.cols();
-  printf("%s(%zd,%zd)\n", title, m, n);
+  pdePrintf("%s(%zd,%zd)\n", title, m, n);
   for (size_t i = 0; i < m; i++) {
     for (size_t j = 0; j < n; j++) {
-      printf(format, a(i, j));
+      pdePrintf(format, a(i, j));
     }
-    printf("\n");
+    pdePrintf("\n");
   }
-  printf("\n");
+  pdePrintf("\n");
 }

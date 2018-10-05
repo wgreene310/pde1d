@@ -50,7 +50,7 @@ PDEMeshMapper::PDEMeshMapper(const RealVector &srcMesh, const PDEModel &model,
     size_t indRight;
     size_t ind = lwr - begin;
 #if DEBUGPRT
-    printf("dest val=%20.16e, ind=%d\n", xd, ind);
+    pdePrintf("dest val=%20.16e, ind=%d\n", xd, ind);
 #endif
     if (lwr == begin) {
       if ((srcMesh[0] - xd) > tol) {
@@ -75,7 +75,7 @@ PDEMeshMapper::PDEMeshMapper(const RealVector &srcMesh, const PDEModel &model,
     }
     double s = calcXi(srcMesh[indRight - 1], srcMesh[indRight], xd);
 #if DEBUGPRT
-    printf("ind=%d, indRight=%d, s=%12.3e\n", ind, indRight, s);
+    pdePrintf("ind=%d, indRight=%d, s=%12.3e\n", ind, indRight, s);
 #endif
     destMeshParamVals[i] = s;
     destMeshElemIndex[i] = static_cast<int>(indRight-1);
@@ -109,7 +109,7 @@ void PDEMeshMapper::mapFunctionImpl(const RealMatrix &srcU, RealMatrix &destU,
     const ShapeFunction &sf = elem.getSF().getShapeFunction();
     model.getDofIndicesForElem(eInd, elemDofs);
 #if 0
-    printf("eInd=%d, nn=%d, dofs=%d %d\n", eInd, sf.numNodes(),
+    pdePrintf("eInd=%d, nn=%d, dofs=%d %d\n", eInd, sf.numNodes(),
       elemDofs[0], elemDofs[1]);
 #endif
     N.resize(sf.numNodes());

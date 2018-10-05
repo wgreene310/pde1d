@@ -50,10 +50,10 @@ void ShapeFunctionHierarchical::N(double xi, double *vals) const {
     vals[i] = Ni(i+1);
   }
 #if 0
-  printf("P=");
+  pdePrintf("P=");
   for (int i = 0; i <= degree ; i++)
-    printf("%15.6e ", P[i]);
-  printf("\n");
+    pdePrintf("%15.6e ", P[i]);
+  pdePrintf("\n");
 #endif
 }
 
@@ -76,10 +76,10 @@ void ShapeFunctionHierarchical::dNdr(double xi, double *vals) const
     vals[i] = dNi(i);
   }
 #if 0
-  printf("dP=");
+  pdePrintf("dP=");
   for (int i = 0; i <= degree; i++)
-    printf("%15.6e ", dP[i]);
-  printf("\n");
+    pdePrintf("%15.6e ", dP[i]);
+  pdePrintf("\n");
 #endif
 }
 

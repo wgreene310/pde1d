@@ -37,7 +37,7 @@ bool PDEEvents::isTerminalEvent(double time, const RealVector &u,
   for (int j = 0; j < numEvents; j++) {
     int jFlag = eventsFound(j);
 #if 0
-    printf("Event %d: jFlag=%d, eventsVal=%12.3e, "
+    pdePrintf("Event %d: jFlag=%d, eventsVal=%12.3e, "
       "eventsIsTerminal=%g, eventsDirection=%g\n",
       j, jFlag, eventsVal(j), eventsIsTerminal(j),
       eventsDirection(j));

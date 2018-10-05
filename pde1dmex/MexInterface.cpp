@@ -34,8 +34,8 @@ void MexInterface::print(const mxArray *a, const char *name)
   mexPrintf("%s(%d,%d)\n", name, m, n);
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++)
-      printf("%g ", A(i, j));
-    printf("\n");
+      mexPrintf("%g ", A(i, j));
+    mexPrintf("\n");
   }
 }
 

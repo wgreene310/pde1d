@@ -186,7 +186,7 @@ namespace {
 #define DEBUG 0
 
 #if DEBUG
-    printf("resFunc called\n");
+    cout << "resFunc called" << endl;
     print(uu, "u");
     print(up, "up");
 #endif
@@ -295,7 +295,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   resFunc(0, uu(), up(), res(), this);
   MapVec resVec(&res[0], neqImpl);
   double initResNorm = resVec.dot(resVec);
-  printf("initResNorm=%12.3e\n", sqrt(initResNorm));
+  pdePrintf("initResNorm=%12.3e\n", sqrt(initResNorm));
 #endif
 
   /* Call IDACreate and IDAMalloc to initialize solution */
@@ -393,7 +393,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
     double tout=tspan(i), tret;
     ier = IDASolve(ida, tout, &tret, uu.getNV(), up.getNV(), IDA_NORMAL);
     if (ier < 0) {
-      printf("Error returned from IDASolve=%d\n", ier);
+      pdePrintf("Error returned from IDASolve=%d\n", ier);
       printStats();
       char msg[1024];
       sprintf(msg, "Time integration failed at t=%15.6e before reaching final time.\n"
@@ -1047,13 +1047,13 @@ void PDE1dImpl::printStats()
     &hlast, &hcur, &tcur);
   long nniters, nncfails;
   flag = IDAGetNonlinSolvStats(ida, &nniters, &nncfails);
-  printf("Number of internal time steps = %ld\n", nsteps);
-  printf("Number of residual function calls = %ld\n", nrevals);
-  printf("Number of Jacobian calculations = %ld\n", nlinsetups);
-  printf("Number of solution accuracy test failures = %ld\n", netfails);
-  printf("Last internal time step size = %12.3e\n", hlast);
-  printf("Number of nonlinear iterations = %ld\n", nniters);
-  printf("Number of nonlinear convergence failures = %ld\n", nncfails);
+  pdePrintf("Number of internal time steps = %ld\n", nsteps);
+  pdePrintf("Number of residual function calls = %ld\n", nrevals);
+  pdePrintf("Number of Jacobian calculations = %ld\n", nlinsetups);
+  pdePrintf("Number of solution accuracy test failures = %ld\n", netfails);
+  pdePrintf("Last internal time step size = %12.3e\n", hlast);
+  pdePrintf("Number of nonlinear iterations = %ld\n", nniters);
+  pdePrintf("Number of nonlinear convergence failures = %ld\n", nncfails);
 }
 
 void PDE1dImpl::calcJacPattern(Eigen::SparseMatrix<double> &J)
