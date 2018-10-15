@@ -362,6 +362,8 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   // second stage of initial conditions calculation
   initCond.update();
   //initCond.print();
+  uu = initCond.getU0();
+  up = initCond.getUp0();
 
 #if TEST_IC_CALC
   // testing only
