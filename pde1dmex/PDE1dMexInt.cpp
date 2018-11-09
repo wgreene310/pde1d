@@ -173,7 +173,7 @@ void PDE1dMexInt::evalBC(double xl, const RealVector &ul,
 
 void PDE1dMexInt::evalPDE(double x, double t,
   const RealVector &u, const RealVector &DuDx, 
-  const RealVector &v, const RealVector &vDot, PDE &pde) {
+  const RealVector &v, const RealVector &vDot, PDECoeff &pde) {
   // Evaluate pde coefficients one point at a time
   // [c,f,s] = heatpde(x,t,u,DuDx)
   setScalar(x, mxX1);
@@ -189,7 +189,7 @@ void PDE1dMexInt::evalPDE(double x, double t,
   }
   const mxArray *funcInp[] = { pdefun, mxX1, mxT, mxVec1, mxVec2,
     mxV, mxVDot };
-  RealVector *outArgs[] = { &pde.c, &pde.f, &pde.s };
+  RealMatrix *outArgs[] = { &pde.c, &pde.f, &pde.s };
   callMatlab(funcInp, nargin, outArgs, nargout);
 }
 

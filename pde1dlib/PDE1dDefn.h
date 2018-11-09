@@ -33,36 +33,33 @@ public:
   virtual void evalBC(double xl, const RealVector &ul,
     double xr, const RealVector &ur, double t, 
     const RealVector &v, const RealVector &vDot, BC &bc) = 0;
-  struct PDE {
-    RealVector c, f, s;
-  };
-  virtual void evalPDE(double x, double t, 
-    const RealVector &u, const RealVector &DuDx, 
-    const RealVector &v, const RealVector &vDot, PDE &pde) = 0;
-  virtual const RealVector &getMesh() const = 0;
-  virtual const RealVector &getTimeSpan() const = 0;
-  virtual bool hasVectorPDEEval() const { return false;  }
   struct PDECoeff {
     RealMatrix c, f, s;
   };
+  virtual void evalPDE(double x, double t, 
+    const RealVector &u, const RealVector &DuDx, 
+    const RealVector &v, const RealVector &vDot, PDECoeff &pde) = 0;
+  virtual const RealVector &getMesh() const = 0;
+  virtual const RealVector &getTimeSpan() const = 0;
+  virtual bool hasVectorPDEEval() const { return false;  }
   virtual void evalPDE(const RealVector &x, double t,
-    const RealMatrix &u, const RealMatrix &DuDx, 
-    const RealVector &v, const RealVector &vDot, PDECoeff &pde) {}
+    const RealMatrix &u, const RealMatrix &DuDx,
+    const RealVector &v, const RealVector &vDot, PDECoeff &pde) { 
+  };
   virtual int getNumODE() const { return 0; }
   struct ODE {
     RealVector c, f;
   };
-  virtual void evalODE(double t, const RealVector &v, 
-    const RealVector &vdot, 
-    const RealMatrix &u, const RealMatrix &DuDx, 
+  virtual void evalODE(double t, const RealVector &v,
+    const RealVector &vdot,
+    const RealMatrix &u, const RealMatrix &DuDx,
     const RealMatrix &odeR, const RealMatrix &odeDuDt,
-    const RealMatrix &odeDuDxDt, RealVector &f) = 0;
+    const RealMatrix &odeDuDxDt, RealVector &f) { };
   virtual const RealVector &getODEMesh() = 0;
-
   virtual int getNumEvents() const { return 0; }
   virtual void evalEvents(double t, const RealMatrix &u,
     RealVector &eventsVal, RealVector &eventsIsTerminal,
-    RealVector &eventsDirection) = 0;
+    RealVector &eventsDirection) { };
 };
 
 PDESolution pde1d(PDE1dDefn &pde);

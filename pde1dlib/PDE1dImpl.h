@@ -76,8 +76,11 @@ private:
   void setAlgVarFlags(SunVector &y0, SunVector &y0p, SunVector &id);
   RealMatrix calcDOdeDvDot(double time, const RealMatrix &yFE, 
     const RealMatrix &ypFE, const RealMatrix &r2, RealVector &v, RealVector &vdot);
-  RealMatrix calcDOdeDu(double time, const RealMatrix &yFE,
+  RealMatrix calcDOdeDv(double time, const RealMatrix &yFE,
     const RealMatrix &ypFE, const RealMatrix &r2, RealVector &v, RealVector &vdot);
+  void calcDOdeDu(double time, const RealMatrix &yFE,
+    const RealMatrix &ypFE, const RealMatrix &r2, RealVector &v, 
+    RealVector &vdot, RealMatrix &jac, RealMatrix &jacDot);
   void checkIncreasing(const RealVector &v, int argNum, const char *argName);
   void checkCoeffs(const PDE1dDefn::PDECoeff &coeffs);
   void printStats();
@@ -92,6 +95,7 @@ private:
   void jacobianDiagnostics(double t0, SunVector &u,
      SunVector &up, SunVector &R);
   void testMats(const RealVector &y0);
+  void testODEJacobian(RealVector &y);
   PDE1dDefn &pde;
   PDE1dOptions &options;
   RealVector mesh, tspan;
@@ -115,6 +119,7 @@ private:
   std::unique_ptr<PDEEvents> pdeEvents;
   RealVector v, vDot, odeF;
   RealMatrix odeU, odeDuDx, odeFlux, odeDuDt, odeDuDxDt;
+  IntVector isOdeAConstraint;
   size_t numViewElemsPerElem;
 };
 

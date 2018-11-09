@@ -21,8 +21,8 @@ using std::endl;
 
 #include "PDEMeshMapper.h"
 #include "PDE1dException.h"
-#include "ShapeFunctionHierarchical.h"
 #include "PDEModel.h"
+#include "util.h"
 
 #define DEBUGPRT 0
 
@@ -41,6 +41,8 @@ PDEMeshMapper::PDEMeshMapper(const RealVector &srcMesh, const PDEModel &model,
   const size_t numSrc = srcMesh.size();
   destMeshParamVals.resize(numDest);
   destMeshElemIndex.resize(numDest);
+  const int maxElemNodes = ShapeFunctionHierarchical::MAX_DEGREE + 1;
+  elemDofs.resize(maxElemNodes);
   double tol = 100 * std::numeric_limits<double>::epsilon();
   for (int i = 0; i < numDest; i++) {
     double xd = destMesh[i];
@@ -78,8 +80,14 @@ PDEMeshMapper::PDEMeshMapper(const RealVector &srcMesh, const PDEModel &model,
     pdePrintf("ind=%d, indRight=%d, s=%12.3e\n", ind, indRight, s);
 #endif
     destMeshParamVals[i] = s;
-    destMeshElemIndex[i] = static_cast<int>(indRight-1);
+    int eInd = static_cast<int>(indRight - 1);
+    destMeshElemIndex[i] = eInd;
+    model.getDofIndicesForElem(eInd, elemDofs);
+    srcMeshDofIndices.insert(srcMeshDofIndices.end(), elemDofs.begin(), elemDofs.end());
   }
+  std::sort(srcMeshDofIndices.begin(), srcMeshDofIndices.end());
+  srcMeshDofIndices.erase(std::unique(srcMeshDofIndices.begin(), 
+    srcMeshDofIndices.end()), srcMeshDofIndices.end());
 }
 
 void PDEMeshMapper::mapFunction(const RealMatrix &srcU, RealMatrix &destU)
@@ -99,9 +107,7 @@ void PDEMeshMapper::mapFunctionImpl(const RealMatrix &srcU, RealMatrix &destU,
   const size_t numDest = destMesh.size();
   destU.resize(numDepVars, numDest);
   destU.setZero();
-  const int maxElemNodes = ShapeFunctionHierarchical::MAX_DEGREE + 1;
-  RealVector N(maxElemNodes);
-  std::vector<int> elemDofs(maxElemNodes);
+  RealVector N;
   for (int i = 0; i < numDest; i++) {
     double s = destMeshParamVals[i];
     int eInd = destMeshElemIndex[i];

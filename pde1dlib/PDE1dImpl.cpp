@@ -19,6 +19,7 @@ using std::cout;
 using std::endl;
 #include <cmath>
 #include <algorithm>
+#include <memory>
 
 #include <Eigen/LU>
 
@@ -88,7 +89,8 @@ public:
 PDE1dImpl::PDE1dImpl(PDE1dDefn &pde, PDE1dOptions &options) : 
 pde(pde), options(options)
 {
-#if 0
+#if _cpp_lib_make_unique
+  // C++14
   sf = std::make_unique<ShapeFunction2>();
 #else
   sf = std::unique_ptr<ShapeFunction2>(new ShapeFunction2);
@@ -127,6 +129,8 @@ pde(pde), options(options)
     odeFlux.resize(numDepVars, numOdePts);
     odeDuDt.resize(numDepVars, numOdePts);
     odeDuDxDt.resize(numDepVars, numOdePts);
+    isOdeAConstraint.resize(numODE);
+    isOdeAConstraint.setZero();
   }
   bc.pl.resize(numDepVars);
   bc.pr.resize(numDepVars);
@@ -280,7 +284,9 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   //sol.setSolutionVector(0, 0, y0);
   return 0;
 #endif
-  //sol.time.resize(numTimes);
+#if 0
+  testODEJacobian(y0);
+#endif
 
   const size_t neqImpl = totalNumEqns;
   /* Create vectors uu, up, res, constraints, id. */
@@ -506,8 +512,7 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
       auto dNdx = dN.col(i) / jac;
       auto ui = u2e*N.col(i);
       auto dUiDx = u2e*dNdx;
-      xiV(0) = xi;
-      pde.evalPDE(xiV, t, ui, dUiDx, v, vDot, pdeCoeffs);
+      pde.evalPDE(xi, t, ui, dUiDx, v, vDot, pdeCoeffs);
       Eigen::Ref<Eigen::VectorXd> cIp = pdeCoeffs.c.col(0);
       Eigen::Ref<Eigen::VectorXd> sIp = pdeCoeffs.s.col(0);
       Eigen::Ref<Eigen::VectorXd> fIp = pdeCoeffs.f.col(0);
@@ -727,9 +732,30 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
     calcGlobalEqns(time, u, up, Cxd, F, S);
     R.topRows(numFEEqns) = F - S;
 
+    const size_t nnfe = pdeModel->numNodesFEEqns();
+    MapMat u2(u.data(), numDepVars, nnfe);
+
+    // add odes, if any
+    if (numODE) {
+      MapMat f2(F.data(), numDepVars, nnfe);
+      meshMapper->mapFunction(u2, odeU);
+      meshMapper->mapFunctionDer(u2, odeDuDx);
+      meshMapper->mapFunctionDer(f2, odeFlux);
+      MapMat up2(up.data(), numDepVars, nnfe);
+      meshMapper->mapFunction(up2, odeDuDt);
+      meshMapper->mapFunctionDer(up2, odeDuDxDt);
+      pde.evalODE(time, v, vDot, odeU, odeDuDx, odeFlux,
+        odeDuDt, odeDuDxDt, odeF);
+      R.bottomRows(numODE) = odeF;
+
+      // add lagrange multiplier terms
+#if 0
+      RealMatrix dOduDu = calcDOdeDu(time, odeU,
+        ypFE, r2, v, vdot);
+#endif
+    }
+
   // apply constraints
-  const size_t nnfe = pdeModel->numNodesFEEqns();
-  MapMat u2(u.data(), numDepVars, nnfe);
   size_t rightDofOff = numFEEqns - numDepVars;
   RealVector ul = u2.col(0), ur = u2.col(nnfe-1);
   const double xl = mesh(0), xr = mesh(mesh.size() - 1);
@@ -769,25 +795,7 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
   cout << "Cxd\n" << Cxd << endl;
   cout << "F\n" << F << endl;
 #endif
-  // add odes, if any
-  if (numODE) {
-    MapMat f2(F.data(), numDepVars, nnfe);
-    meshMapper->mapFunction(u2, odeU);
-    meshMapper->mapFunctionDer(u2, odeDuDx);
-    meshMapper->mapFunctionDer(f2, odeFlux);
-    MapMat up2(up.data(), numDepVars, nnfe);
-    meshMapper->mapFunction(up2, odeDuDt);
-    meshMapper->mapFunctionDer(up2, odeDuDxDt);
-    pde.evalODE(time, v, vDot, odeU, odeDuDx, odeFlux, 
-      odeDuDt, odeDuDxDt, odeF);
-    R.bottomRows(numODE) = odeF;
-
-    // add lagrange multiplier terms
-#if 0
-    RealMatrix dOduDu = calcDOdeDu(time, odeU,
-      ypFE, r2, v, vdot);
-#endif
-  }
+  
 }
 
   void PDE1dImpl::jacobianDiagnostics(double t0, SunVector &u,
@@ -821,6 +829,32 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
 
     if(abs(jacDiag) > 1)
     throw PDE1dException("pde1d:testJacobian", "Test complete.");
+  }
+
+  void PDE1dImpl::testODEJacobian(RealVector &y) {
+    if (numODE) {
+      double t0 = tspan[0];
+      SunVector yTmp(totalNumEqns), yp(totalNumEqns);
+      yTmp = y;
+      yp.setZero();
+      calcGlobalEqns(t0, yTmp, yp, Cxd, F, S);
+      const size_t nnfe = pdeModel->numNodesFEEqns();
+      MapMat  f2(F.data(), numDepVars, nnfe);
+      MapMat  yFE(y.data(), numDepVars, nnfe);
+      MapMat  ypFE(yp.data(), numDepVars, nnfe);
+      v = y.bottomRows(numODE);
+      vDot = yp.bottomRows(numODE);
+      RealMatrix odeJacDot = calcDOdeDvDot(t0, yFE, ypFE, f2, v, vDot);
+      RealMatrix odeJac = calcDOdeDv(t0, yFE, ypFE, f2, v, vDot);
+      cout << "odeJac:\n" << odeJac << endl;
+      cout << "odeJacDot:\n" << odeJacDot << endl;
+
+      RealMatrix dOdeDu, dOdeDuDot;
+      calcDOdeDu(t0, yFE, ypFE, f2, v, vDot, dOdeDu, dOdeDuDot);
+      cout << "dOdeDu:\n" << dOdeDu << endl;
+      cout << "dOdeDuDot:\n" << dOdeDuDot << endl;
+    }
+    throw PDE1dException("pde1d:testODEJacobian", "Test complete.");
   }
 
 void PDE1dImpl::testMats(const RealVector &y0)
@@ -927,14 +961,12 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0, SunVector &y0p, SunVector &id)
     }
   }
   else {
-    RealVector xiV(1);
     for (int i = 0; i < nnMesh; i++) {
       double xi = mesh(i);
       const auto &ui = uPts.col(i);
       const auto &dUiDx = duPts.col(i);
-      xiV(0) = xi;
       Eigen::Ref<Eigen::VectorXd> cIp = pdeCoeffs.c.col(0);
-      pde.evalPDE(xiV, t0, ui, dUiDx, v, vDot, pdeCoeffs);
+      pde.evalPDE(xi, t0, ui, dUiDx, v, vDot, pdeCoeffs);
       for (int j = 0; j < numDepVars; j++)
         if (cIp[j] == 0)
           idMat(j, i) = 0;
@@ -960,14 +992,30 @@ void PDE1dImpl::setAlgVarFlags(SunVector &y0, SunVector &y0p, SunVector &id)
     MapMat  yp0FE(y0p.data(), numDepVars, nnfe);
     v = y0.bottomRows(numODE);
     vDot = y0p.bottomRows(numODE);
-    RealMatrix odeJac = calcDOdeDvDot(t0, y0FE, yp0FE, f2, v, vDot);
+    RealMatrix odeJacDot = calcDOdeDvDot(t0, y0FE, yp0FE, f2, v, vDot);
     //cout << "odeJac:\n" << odeJac << endl;
     for (int i = 0; i < numODE; i++) {
-      auto rci = odeJac.row(i) + odeJac.col(i).transpose();
+      auto rci = odeJacDot.row(i) + odeJacDot.col(i).transpose();
       if ((rci.array() == 0).all())
         id(numFEEqns + i) = 0;
     }
     //print(id.getNV(), "id");
+
+    // Do the ODE equations depend explicitly on their respective ODE
+    // variable? If not, the equation is a pure constraint on the values
+    // of the PDE variables
+    RealMatrix odeJac = calcDOdeDv(t0, y0FE, yp0FE, f2, v, vDot);
+    for (int i = 0; i < numODE; i++) {
+      //pdePrintf("odeJac.all=%d\n", (odeJac.row(i).array() == 0).all());
+      //pdePrintf("odeJacDot.all=%d\n", (odeJacDot.row(i).array() == 0).all());
+      if ((odeJacDot.row(i).array() == 0).all() &&
+        (odeJac.row(i).array() == 0).all())
+        isOdeAConstraint(i) = 1;
+      //pdePrintf("isOdeAConstraint=%d\n", i);
+    }
+    //printMat(odeJac, "odeJac", "%12.3e");
+    //printMat(odeJacDot, "odeJacDot", "%12.3e");
+    //printMat(isOdeAConstraint.transpose(), "####isOdeAConstraint", "%2d");
   }
 }
 
@@ -997,11 +1045,92 @@ RealMatrix PDE1dImpl::calcDOdeDvDot(double time, const RealMatrix &yFE,
   return jac;
 }
 
-RealMatrix PDE1dImpl::calcDOdeDu(double time, const RealMatrix &yFE,
-  const RealMatrix &ypFE, const RealMatrix &r2, RealVector &v, RealVector &vdot)
+RealMatrix PDE1dImpl::calcDOdeDv(double time, const RealMatrix &yFE,
+  const RealMatrix &ypFE, const RealMatrix &f2, RealVector &v, RealVector &vdot)
 {
-  RealMatrix jac(numODE, numFEEqns);
+  RealMatrix jac(numODE, numODE);
+  meshMapper->mapFunction(yFE, odeU);
+  meshMapper->mapFunctionDer(yFE, odeDuDx);
+  meshMapper->mapFunctionDer(f2, odeFlux);
+
+  meshMapper->mapFunction(ypFE, odeDuDt);
+  meshMapper->mapFunctionDer(ypFE, odeDuDxDt);
+  pde.evalODE(time, v, vDot, odeU, odeDuDx, odeFlux,
+    odeDuDt, odeDuDxDt, odeF);
+  RealVector vDelta = v, fDelta(numODE);
+  double sqrtEps = sqrt(std::numeric_limits<double>::epsilon());
+  for (int i = 0; i < numODE; i++) {
+    double h = sqrtEps * std::max(v[i], 1.0);
+    double tmpVi = v[i];
+    vDelta[i] += h;
+    pde.evalODE(time, vDelta, vdot, odeU, odeDuDx, odeFlux,
+      odeDuDt, odeDuDxDt, fDelta);
+    jac.col(i) = (fDelta - odeF) / h;
+    vDelta[i] = tmpVi;
+  }
   return jac;
+}
+
+void PDE1dImpl::calcDOdeDu(double time, const RealMatrix &yFE,
+  const RealMatrix &ypFE, const RealMatrix &r2, RealVector &v,
+  RealVector &vdot, RealMatrix &jac, RealMatrix &jacDot)
+{
+  // calculate derivatives of ode equations wrt pde variables
+  const PDEMeshMapper::StdIntVec &pdeDofs = meshMapper->mappedDOFList();
+  const size_t numPdeDofs = pdeDofs.size();
+  if (!numPdeDofs) return;
+  cout << "pdeDofs=" << pdeDofs << endl;
+  jac.resize(numODE, numPdeDofs*numDepVars);
+  jacDot.resize(numODE, numPdeDofs*numDepVars);
+
+  meshMapper->mapFunction(yFE, odeU);
+  meshMapper->mapFunctionDer(yFE, odeDuDx);
+  meshMapper->mapFunctionDer(r2, odeFlux);
+  meshMapper->mapFunction(ypFE, odeDuDt);
+  meshMapper->mapFunctionDer(ypFE, odeDuDxDt);
+  pde.evalODE(time, v, vDot, odeU, odeDuDx, odeFlux,
+    odeDuDt, odeDuDxDt, odeF);
+
+  double sqrtEps = sqrt(std::numeric_limits<double>::epsilon());
+  // dODE/dU
+  RealMatrix uDelta = yFE;
+  RealVector fDelta(numODE);
+  int k = 0;
+  for (int i = 0; i < numPdeDofs; i++) {
+    int ui = pdeDofs[i];
+    for (int j = 0; j < numDepVars; j++) {
+      double tmpUij = yFE(j, ui);
+      double h = sqrtEps * std::max(tmpUij, 1.0);
+      uDelta(j, ui) += h;
+      meshMapper->mapFunction(uDelta, odeU);
+      meshMapper->mapFunctionDer(uDelta, odeDuDx);
+      pde.evalODE(time, v, vdot, odeU, odeDuDx, odeFlux,
+        odeDuDt, odeDuDxDt, fDelta);
+      jac.col(k++) = (fDelta - odeF) / h;
+      uDelta(j, ui) = tmpUij;
+    }
+  }
+
+  // dODE/dUDot
+  meshMapper->mapFunction(yFE, odeU);
+  meshMapper->mapFunctionDer(yFE, odeDuDx);
+
+  RealMatrix dudtDelta = ypFE;
+  k = 0;
+  for (int i = 0; i < numPdeDofs; i++) {
+    int ui = pdeDofs[i];
+    for (int j = 0; j < numDepVars; j++) {
+      double tmpUij = ypFE(j, ui);
+      double h = sqrtEps * std::max(tmpUij, 1.0);
+      dudtDelta(j, ui) += h;
+      meshMapper->mapFunction(dudtDelta, odeDuDt);
+      meshMapper->mapFunctionDer(dudtDelta, odeDuDxDt);
+      pde.evalODE(time, v, vdot, odeU, odeDuDx, odeFlux,
+        odeDuDt, odeDuDxDt, fDelta);
+      jacDot.col(k++) = (fDelta - odeF) / h;
+      dudtDelta(j, ui) = tmpUij;
+    }
+  }
 }
 
 

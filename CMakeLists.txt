@@ -132,15 +132,18 @@ include_directories(./util)
 include_directories(./pde1dlib)
 include_directories(./FDJacobian)
 
-add_library (pde1d SHARED 
+add_library(pde1dLib 
 ${PDE_LIB_SRC} 
 ${PDE_H_FILES}
-${PDE_MEX_SRC}
-${PDE_MEX_H_FILES}
 ${PDE_JAC_SRC}
 ${PDE_JAC_H_FILES}
 util/util.h
 util/util.cpp
+)
+
+add_library (pde1d SHARED 
+${PDE_MEX_SRC}
+${PDE_MEX_H_FILES}
 )
 
 #target_compile_features(pde1d PUBLIC cxx_std_11)
@@ -152,6 +155,7 @@ endif()
 target_link_libraries(pde1d PRIVATE
 ${SUNDIALS_LIBS}
 ${MEX_LIBS}
+pde1dLib
 )
 
 if(${LINEAR_SOLVER} STREQUAL KLU)
@@ -175,3 +179,5 @@ add_custom_command(TARGET pde1d POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different # which executes "cmake - E copy_if_different..."      
 				$<TARGET_FILE:pde1d>
         "${CMAKE_INSTALL_PREFIX}/pde1d.${mexext}") 
+				
+add_subdirectory (tests)

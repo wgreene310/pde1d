@@ -12,7 +12,9 @@
 //
 // You should have received a copy of the GNU General Public License along with
 // this program; if not, see <http://www.gnu.org/licenses/>.
+
 #include <stdio.h>
+#include <iostream>
 
 #include <Eigen/Core>
 
@@ -36,4 +38,20 @@ void printMat(const T &a, const char *title, const char *format = "%16.9e,") {
     pdePrintf("\n");
   }
   pdePrintf("\n");
+}
+
+template
+<typename T, template<typename ELEM, typename ALLOC = std::allocator<ELEM>> class Container>
+std::ostream& operator<< (std::ostream& out, const Container<T>& v)
+{
+  out << "{";
+  //typename Container<T>::const_iterator beg = container.begin();
+  const auto last = --v.end();
+  for (auto it = v.begin(); it != v.end(); ++it) {
+    out << *it;
+    if (it != last)
+      out << ", ";
+  }
+  out << "}";
+  return out;
 }

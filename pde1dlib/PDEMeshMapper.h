@@ -14,8 +14,10 @@
 // this program; if not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
+#include <vector>
 
 #include <MatrixTypes.h>
+#include "ShapeFunctionHierarchical.h"
 
 class PDEModel;
 
@@ -25,11 +27,17 @@ public:
     const RealVector &destMesh);
   void mapFunction(const RealMatrix &srcU, RealMatrix &destU);
   void mapFunctionDer(const RealMatrix &srcU, RealMatrix &destU);
+  typedef std::vector<int> StdIntVec;
+  const StdIntVec &mappedDOFList() const {
+    return srcMeshDofIndices;
+  }
 private:
   void mapFunctionImpl(const RealMatrix &srcU, RealMatrix &destU, bool calcDeriv);
   const RealVector &srcMesh, &destMesh;
   const PDEModel &model;
   RealVector destMeshParamVals;
   Eigen::VectorXi destMeshElemIndex;
+  StdIntVec srcMeshDofIndices;
+  StdIntVec elemDofs;
 };
 

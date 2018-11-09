@@ -47,7 +47,7 @@ public:
     const RealVector &v, const RealVector &vDot, BC &bc);
   virtual void evalPDE(double x, double t,
     const RealVector &u, const RealVector &DuDx, 
-    const RealVector &v, const RealVector &vDot, PDE &pde);
+    const RealVector &v, const RealVector &vDot, PDECoeff &pde);
   virtual bool hasVectorPDEEval() const { return true; }
   virtual void evalPDE(const RealVector &x, double t,
     const RealMatrix &u, const RealMatrix &DuDx, 
