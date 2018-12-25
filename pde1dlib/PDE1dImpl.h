@@ -66,6 +66,10 @@ void calcJacobianODE(double time, double alpha, SunVector &u,
   const PDEModel &getModel() const {
     return *pdeModel;
   }
+  // for testing only
+  void testMats(const RealVector &y0);
+  typedef std::vector<RealMatrix> MatrixVec;
+  MatrixVec testODEJacobian(RealVector &y);
 private:
   void calcGlobalEqns(double t, SunVector &u, SunVector &up, 
     RealVector &Cxd, RealVector &F, RealVector &S);
@@ -94,8 +98,7 @@ private:
     RealMatrix &viewVec);
   void jacobianDiagnostics(double t0, SunVector &u,
      SunVector &up, SunVector &R);
-  void testMats(const RealVector &y0);
-  void testODEJacobian(RealVector &y);
+  //
   PDE1dDefn &pde;
   PDE1dOptions &options;
   RealVector mesh, tspan;

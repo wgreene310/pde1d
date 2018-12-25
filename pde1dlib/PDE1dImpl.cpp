@@ -831,7 +831,8 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
     throw PDE1dException("pde1d:testJacobian", "Test complete.");
   }
 
-  void PDE1dImpl::testODEJacobian(RealVector &y) {
+  PDE1dImpl::MatrixVec PDE1dImpl::testODEJacobian(RealVector &y) {
+    MatrixVec mats;
     if (numODE) {
       double t0 = tspan[0];
       SunVector yTmp(totalNumEqns), yp(totalNumEqns);
@@ -844,17 +845,19 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
       MapMat  ypFE(yp.data(), numDepVars, nnfe);
       v = y.bottomRows(numODE);
       vDot = yp.bottomRows(numODE);
-      RealMatrix odeJacDot = calcDOdeDvDot(t0, yFE, ypFE, f2, v, vDot);
-      RealMatrix odeJac = calcDOdeDv(t0, yFE, ypFE, f2, v, vDot);
-      cout << "odeJac:\n" << odeJac << endl;
-      cout << "odeJacDot:\n" << odeJacDot << endl;
+      RealMatrix dOdeDvDot = calcDOdeDvDot(t0, yFE, ypFE, f2, v, vDot);
+      RealMatrix dOdeDv = calcDOdeDv(t0, yFE, ypFE, f2, v, vDot);
+      cout << "dOdeDv:\n" << dOdeDv << endl;
+      cout << "dOdeDvDot:\n" << dOdeDvDot << endl;
 
       RealMatrix dOdeDu, dOdeDuDot;
       calcDOdeDu(t0, yFE, ypFE, f2, v, vDot, dOdeDu, dOdeDuDot);
       cout << "dOdeDu:\n" << dOdeDu << endl;
       cout << "dOdeDuDot:\n" << dOdeDuDot << endl;
+      mats = { dOdeDv, dOdeDvDot, dOdeDu, dOdeDuDot };
     }
-    throw PDE1dException("pde1d:testODEJacobian", "Test complete.");
+    return mats;
+    //throw PDE1dException("pde1d:testODEJacobian", "Test complete.");
   }
 
 void PDE1dImpl::testMats(const RealVector &y0)
