@@ -1,0 +1,42 @@
+language: cpp
+
+os:
+  - linux
+  - osx
+
+compiler:
+  - clang
+  - gcc
+
+addons:
+  apt:
+    packages:
+      - libeigen3-dev
+      - octave
+      - liboctave-dev
+  homebrew:
+    packages:
+      - eigen
+      - octave
+
+#TODO: Use released/packaged sundials version
+install:
+  - export SUNDIALS_ROOT=${TRAVIS_BUILD_DIR}/usr
+  - export EIGEN_ROOT=/usr/include/eigen3
+  - export OCTAVE_ROOT=/usr/include/octave-4.0.0/octave
+  - export USE_OCTAVE=true
+  - export SUNDIALS_VERSION=2.7.0
+  - cd ${TRAVIS_BUILD_DIR}
+  - curl -L https://computation.llnl.gov/projects/sundials/download/sundials-${SUNDIALS_VERSION}.tar.gz -o sundials-${SUNDIALS_VERSION}.tar.gz
+  - tar xzf sundials-${SUNDIALS_VERSION}.tar.gz
+  - mkdir -p ${TRAVIS_BUILD_DIR}/sundials-${SUNDIALS_VERSION}/build
+  - cd ${TRAVIS_BUILD_DIR}/sundials-${SUNDIALS_VERSION}/build
+  - cmake -DCMAKE_INSTALL_PREFIX=${SUNDIALS_ROOT} -DEXAMPLES_INSTALL_PATH=${SUNDIALS_ROOT}/examples -DBUILD_ARKODE=OFF -DBUILD_CVODE=OFF -DBUILD_CVODES=OFF -DBUILD_IDAS=OFF -DBUILD_KINSOL=OFF ..
+  - make && make install
+
+script:
+  - cd ${TRAVIS_BUILD_DIR}
+  - travis_wait 10 make objects
+  - travis_wait 10 make pde1d.mex
+  
+  
