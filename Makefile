@@ -28,7 +28,7 @@ LIBS:=-l:${SUNDIALS_LDIR}/libsundials_ida.a \
 ifneq (${USE_OCTAVE},)
 # Octave-related directories
 OCTAVE_ROOT?=/usr/include/octave-4.0.0/octave/
-OCTAVE_INC:=-I${OCTAVE_ROOT}
+OCTAVE_INC?=-I${OCTAVE_ROOT}
 OCTAVE_LDIR?=/usr/lib/x86_64-linux-gnu/
 
 INC+=${OCTAVE_INC}
