@@ -1,3 +1,11 @@
+# vim ft=yaml
+# Multiple lines can be made a single "virtual line" because of the way that
+# Travis munges each line before executing it to print out the exit status.
+# It's okay for it to be on multiple physical lines, so long as you remember:
+# - There can't be any leading "-"s - All newlines will be removed, so use
+# ";"s
+sudo: false  # To use travis container infrastructure
+
 language: cpp
 
 os:
@@ -7,6 +15,11 @@ os:
 compiler:
   - clang
   - gcc
+
+matrix:
+  fast_finish: true
+  allow_failures:
+    - os: osx
 
 addons:
   apt:
@@ -22,10 +35,17 @@ addons:
 #TODO: Use released/packaged sundials version
 install:
   - export SUNDIALS_ROOT=${TRAVIS_BUILD_DIR}/usr
-  - export EIGEN_ROOT=/usr/include/eigen3
-  - export OCTAVE_ROOT=/usr/include/octave-4.0.0/octave
+  - if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
+      export EIGEN_ROOT=/usr/local/include/eigen3/;
+      export EIGEN_INC=-I/usr/local/include/eigen3/;
+      export OCTAVE_ROOT=/usr/local/Cellar/octave/4.4.1_5/;
+      export OCTAVE_LDIR=${OCTAVE_ROOT}/lib/octave/4.4.1/;
+    elif [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
+      export EIGEN_ROOT=/usr/include/eigen3;
+      export OCTAVE_ROOT=/usr/include/octave-4.0.0/octave;
+    fi
   - export USE_OCTAVE=true
-  - export SUNDIALS_VERSION=2.7.0
+  - export SUNDIALS_VERSION=3.1.2
   - cd ${TRAVIS_BUILD_DIR}
   - curl -L https://computation.llnl.gov/projects/sundials/download/sundials-${SUNDIALS_VERSION}.tar.gz -o sundials-${SUNDIALS_VERSION}.tar.gz
   - tar xzf sundials-${SUNDIALS_VERSION}.tar.gz

@@ -3,7 +3,7 @@ UNAME_S:=$(shell uname -s)
 
 # Eigen-related directories
 EIGEN_ROOT?=/usr/include/eigen3/
-EIGEN_INC:=-I${EIGEN_ROOT}/include/
+EIGEN_INC?=-I${EIGEN_ROOT}/include/
 
 # Sundials-related directories
 SUNDIALS_ROOT?=/usr/
@@ -29,7 +29,7 @@ ifneq (${USE_OCTAVE},)
 # Octave-related directories
 OCTAVE_ROOT?=/usr/include/octave-4.0.0/octave/
 OCTAVE_INC:=-I${OCTAVE_ROOT}
-OCTAVE_LDIR:=/usr/lib/x86_64-linux-gnu/
+OCTAVE_LDIR?=/usr/lib/x86_64-linux-gnu/
 
 INC+=${OCTAVE_INC}
 LIBS+=-L${OCTAVE_LDIR} -loctave -loctinterp
