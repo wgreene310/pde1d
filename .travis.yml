@@ -6,6 +6,8 @@
 # ";"s
 sudo: false  # To use travis container infrastructure
 
+dist: xenial
+
 language: cpp
 
 os:
@@ -20,43 +22,73 @@ matrix:
   fast_finish: true
   allow_failures:
     - os: osx
+  exclude:
+    - os: osx # This is identical (apparently) to os: osx and compiler: clang
+      compiler: gcc
 
 addons:
   apt:
+    sources:
+      - ubuntu-toolchain-r-test
     packages:
       - libeigen3-dev
+      - libsuitesparse-dev
+      - libboost-dev
       - octave
       - liboctave-dev
+      - g++-6
   homebrew:
     packages:
       - eigen
       - octave
+      - boost
+      - suitesparse
 
-#TODO: Use released/packaged sundials version
+# Set global environment variables
+env:
+  global:
+    - SUNDIALS_ROOT=${TRAVIS_BUILD_DIR}/usr
+    - USE_OCTAVE=true
+    - SUNDIALS_VERSION=3.1.2
+
+#TODO: Use packaged sundials version
 install:
-  - export SUNDIALS_ROOT=${TRAVIS_BUILD_DIR}/usr
-  - if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
+  # Set necessary environment variables (platform/dep version dependent)
+  # Note: multi-line YAML syntax used here.
+  - |
+    if [[ "${TRAVIS_OS_NAME}" == "osx" ]]; then
+      export SUITESPARSE_ROOT=/usr/local/Cellar/suite-sparse/5.3.0/include/;
+      export SUITESPARSE_LDIR=/usr/local/Cellar/suite-sparse/5.3.0/lib/;
       export EIGEN_ROOT=/usr/local/include/eigen3/;
-      export EIGEN_INC=-I/usr/local/include/eigen3/;
       export OCTAVE_ROOT=/usr/local/Cellar/octave/4.4.1_5/;
+      export OCTAVE_INC="-I${OCTAVE_ROOT}/include/octave-4.4.1/octave/";
       export OCTAVE_LDIR=${OCTAVE_ROOT}/lib/octave/4.4.1/;
     elif [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
+      export SUITESPARSE_ROOT=/usr/include/suitesparse;
+      export SUITESPARSE_LDIR=/usr/lib/x86_64-linux-gnu;
       export EIGEN_ROOT=/usr/include/eigen3;
       export OCTAVE_ROOT=/usr/include/octave-4.0.0/octave;
+      export OCTAVE_INC="-I${OCTAVE_ROOT}";
+      export OCTAVE_LDIR=/usr/local/lib/octave;
+      # Override default compiler with newer one, only on GCC, which
+      # appears to be the only way to get a new enough stdlib.
+      if [[ ${TRAVIS_COMPILER} == "gcc" ]]; then
+        export CC=gcc-6;
+        export CC_FOR_BUILD=${CC};
+        export CXX=g++-6;
+        export CXX_FOR_BUILD=${CXX};
+      fi
     fi
-  - export USE_OCTAVE=true
-  - export SUNDIALS_VERSION=3.1.2
+  # Download SUNDIALS
   - cd ${TRAVIS_BUILD_DIR}
   - curl -L https://computation.llnl.gov/projects/sundials/download/sundials-${SUNDIALS_VERSION}.tar.gz -o sundials-${SUNDIALS_VERSION}.tar.gz
   - tar xzf sundials-${SUNDIALS_VERSION}.tar.gz
   - mkdir -p ${TRAVIS_BUILD_DIR}/sundials-${SUNDIALS_VERSION}/build
   - cd ${TRAVIS_BUILD_DIR}/sundials-${SUNDIALS_VERSION}/build
-  - cmake -DCMAKE_INSTALL_PREFIX=${SUNDIALS_ROOT} -DEXAMPLES_INSTALL_PATH=${SUNDIALS_ROOT}/examples -DBUILD_ARKODE=OFF -DBUILD_CVODE=OFF -DBUILD_CVODES=OFF -DBUILD_IDAS=OFF -DBUILD_KINSOL=OFF ..
+  # Configure and build SUNDIALS with int32_t index type (Eigen index type must be set to the same)
+  - cmake -DCMAKE_INSTALL_PREFIX=${SUNDIALS_ROOT} -DEXAMPLES_INSTALL_PATH=${SUNDIALS_ROOT}/examples -DSUNDIALS_INDEX_TYPE=INT32_T -DBUILD_ARKODE=OFF -DBUILD_CVODE=OFF -DBUILD_CVODES=OFF -DBUILD_IDAS=OFF -DBUILD_KINSOL=OFF -DKLU_ENABLE=ON -DKLU_INCLUDE_DIR=${SUITESPARSE_ROOT} -DKLU_LIBRARY_DIR=${SUITESPARSE_LDIR} ..
   - make && make install
 
 script:
   - cd ${TRAVIS_BUILD_DIR}
-  - travis_wait 10 make objects
-  - travis_wait 10 make pde1d.mex
-  
-  
+  - make pde1d.mex
