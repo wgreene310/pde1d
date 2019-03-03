@@ -27,7 +27,7 @@ pde1d is written in C++, is built using the Make build system, and relies
 on the following third-party libraries.
 
 * The IDA library from [Sundials](http://computation.llnl.gov/projects/sundials)
-is used for solution of the differential-algebraic equations. Note that in order for the library to be compatible with Eigen (and the rest of this package), the index type should be set to `int32_t` at compile time (that is, `SUNDIALS_INDEX_TYPE=INT32_T`.) Look to the build instructions in the `.travis.yml` file in this repository to see how this is done on Linux and MacOS.
+is used for solution of the differential-algebraic equations. Note that in order for the library to be compatible with Eigen (and the rest of this package), the index type should be set to `int32_t` at compile time; that is, set `SUNDIALS_INDEX_TYPE=INT32_T` on the `cmake` command line. The KLU linear solver should also be enabled by setting `KLU_ENABLE=ON`. Look to the build instructions in the `.travis.yml` file in this repository to see how this is done on Linux and MacOS.
 
 * The KLU library from [SuiteSparse](http://faculty.cse.tamu.edu/davis/suitesparse.html) is required.
 
@@ -38,7 +38,7 @@ is used throughout the code.
 
 ### Building on Linux
 
-You'll need the following `apt` packages to build Sundials + PDE1D:
+You'll need the following `apt` packages to build Sundials + PDE1D on Debian Stretch (or Ubuntu Xenial)
 
 ```shell
 apt-get -qq -y --no-install-recommends install \
@@ -59,7 +59,7 @@ apt-get -qq -y --no-install-recommends install \
 
 The Makefile is tested on Linux, so the paths set there for Eigen, Octave, etc. hould be up-to-date as of March 2019, but the paths to Eigen, Suitesparse, Octave, and Sundials can all be changed on the command line.
 
-The object files and the final `mex` file can be built by running
+After building Sundials as described above, the object files and the final `mex` file can be built by running
 
 ```shell
 make objects pde1d.mex
@@ -70,10 +70,10 @@ make objects pde1d.mex
 The Sundials + PDE1D build is tested on MacOS with the following [Homebrew](https://brew.sh/) dependencies:
 
 ```shell
-brew install octave boost eigen
+brew install octave boost eigen suitesparse
 ```
 
-The object files and the final `mex` file can be built by running
+After building Sundials as described above, the object files and the final `mex` file can be built by running
 
 ```shell
 make objects pde1d.mex
@@ -81,4 +81,10 @@ make objects pde1d.mex
 
 ### Installing PDE1D in Octave
 
-After generating the `mex` file, you'll need to install it.
+After generating the `mex` file, you'll need to place it in the directory you intend to use it from, or somewhere else on your Octave/MATLAB Path, along with the corresponding `m` file.
+
+To make it available to all users on a Linux or MacOS system, put those files in
+
+```
+/usr/local/share/octave/site/m/
+```
