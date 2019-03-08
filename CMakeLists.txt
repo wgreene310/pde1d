@@ -3,11 +3,12 @@ cmake_minimum_required (VERSION 3.0)
 project(pde1d)
 SET( CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE )
 cmake_policy(SET CMP0008 NEW)
+cmake_policy(SET CMP0074 NEW)
 
 set(PSE "Octave" CACHE STRING "Problem solving environment")
 set_property(CACHE PSE PROPERTY STRINGS Octave MATLAB)
 
-#message("CMAKE_CXX_COMPILER_ID=" ${CMAKE_CXX_COMPILER_ID})
+#message(STATUS "CMAKE_CXX_COMPILER_ID=" ${CMAKE_CXX_COMPILER_ID})
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
 add_compile_options("/wd4996")
 add_compile_options("/wd4477")
@@ -19,13 +20,13 @@ endif()
 
 find_path(EIGEN_ROOT signature_of_eigen3_matrix_library 
           DOC "Path to Eigen library")
-message("EIGEN_ROOT=" ${EIGEN_ROOT})
+message(STATUS "EIGEN_ROOT=" ${EIGEN_ROOT})
 include_directories(${EIGEN_ROOT})
 
 
 set(LINEAR_SOLVER "KLU" CACHE STRING "Sparse Linear Solver")
 set_property(CACHE LINEAR_SOLVER PROPERTY STRINGS Eigen KLU)
-message("LINEAR_SOLVER=" ${LINEAR_SOLVER})
+message(STATUS "LINEAR_SOLVER=" ${LINEAR_SOLVER})
 
 if(${LINEAR_SOLVER} STREQUAL KLU)
 # suitesparse to get KLU for sundials ida
@@ -44,7 +45,7 @@ endif()
 if(NOT SUITESPARSE_INC_DIR)
   message(SEND_ERROR "Path to SuiteSparse include files not found")
 endif()
-message("SUITESPARSE_INC_DIR=" ${SUITESPARSE_INC_DIR})
+message(STATUS "SUITESPARSE_INC_DIR=" ${SUITESPARSE_INC_DIR})
 include_directories(${SUITESPARSE_INC_DIR})
 # 
 # With Visual Studio we want different debug/release libraries
@@ -86,7 +87,12 @@ sundials_sunlinsolklu
 sundials_nvecserial)
 set(SUNDIALS_LIB_DIR ${SUNDIALS_ROOT}/lib)
 include_directories(${SUNDIALS_ROOT}/include)
-message("SUNDIALS_ROOT=" ${SUNDIALS_ROOT})
+message(STATUS "SUNDIALS_ROOT=" ${SUNDIALS_ROOT})
+
+if(0)
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
+find_package(SUNDIALS REQUIRED)
+endif()
 
 find_package( Boost 1.55 REQUIRED )
 include_directories(${Boost_INCLUDE_DIRS})
@@ -97,8 +103,17 @@ set(OCTAVE_ROOT OCTAVE_ROOT-NOTFOUND CACHE PATH "Path to Octave")
 if(NOT OCTAVE_ROOT)
   message(SEND_ERROR "Path to Octave not found")
 endif()
-include_directories(${OCTAVE_ROOT}/include/octave-${OCTAVE_REL}/octave)
-set(MEX_LIB_DIR ${OCTAVE_ROOT}/lib/octave/${OCTAVE_REL})
+message(STATUS "OCTAVE_ROOT=" ${OCTAVE_ROOT})
+message(STATUS "OCTAVE_REL=" ${OCTAVE_REL})
+file(GLOB_RECURSE OCTAVE_MEX_FILE ${OCTAVE_ROOT}/*/mex.h)
+if(NOT OCTAVE_MEX_FILE)
+    message(SEND_ERROR "File mex.h not found")
+endif()
+get_filename_component(OCTAVE_INCLUDE_DIR ${OCTAVE_MEX_FILE} DIRECTORY)
+include_directories(${OCTAVE_INCLUDE_DIR})
+set(OCTAVE_DEV_ROOT ${OCTAVE_INCLUDE_DIR}/../../..)
+set(MEX_LIB_DIR ${OCTAVE_DEV_ROOT}/lib/octave/${OCTAVE_REL})
+message(STATUS "MEX_LIB_DIR=" ${MEX_LIB_DIR})
 if(${CMAKE_SYSTEM_NAME} STREQUAL Windows)
   set(MEX_LIBS ${MEX_LIB_DIR}/liboctave.dll.a
                ${MEX_LIB_DIR}/liboctinterp.dll.a)
@@ -106,16 +121,17 @@ else()
   set(MEX_LIBS octave octinterp)
 endif()
 else()
+find_package( Matlab REQUIRED COMPONENTS MX_LIBRARY)
 set(MATLAB_ROOT MATLAB_ROOT-NOTFOUND CACHE PATH "Path to MATLAB")
 if(NOT MATLAB_ROOT)
   message(SEND_ERROR "Path to MATLAB not found")
 endif()
-include_directories(${MATLAB_ROOT}/extern/include)
-set(MEX_LIB_DIR ${MATLAB_ROOT}/extern/lib/win64/microsoft)
-set(MEX_LIBS libmex libmx)
+include_directories(${Matlab_INCLUDE_DIRS})
+set(MEX_LIBS 
+${Matlab_MEX_LIBRARY} 
+${Matlab_MX_LIBRARY}
+)
 endif()
-message("OCTAVE_ROOT=" ${OCTAVE_ROOT})
-message("OCTAVE_REL=" ${OCTAVE_REL})
 
 FILE(GLOB PDE_LIB_SRC pde1dlib/*.cpp)
 FILE(GLOB PDE_H_FILES pde1dlib/*.h)
@@ -123,8 +139,6 @@ FILE(GLOB PDE_MEX_SRC pde1dmex/*.cpp)
 FILE(GLOB PDE_MEX_H_FILES pde1dmex/*.h)
 FILE(GLOB PDE_JAC_SRC FDJacobian/*.cpp FDJacobian/FDJacobian.c)
 FILE(GLOB PDE_JAC_H_FILES FDJacobian/*.h FDJacobian/FDJacobian.h)
-
-message("MEX_LIB_DIR=" ${MEX_LIB_DIR})
 
 link_directories(${SUNDIALS_LIB_DIR} ${SUITESPARSE_LIB_DIR} ${MEX_LIB_DIR})
 
@@ -149,7 +163,7 @@ ${PDE_MEX_H_FILES}
 #target_compile_features(pde1d PUBLIC cxx_std_11)
 
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
-target_sources (pde1d PUBLIC mexFunction.def)
+target_sources (pde1d PUBLIC ${CMAKE_SOURCE_DIR}/mexFunction.def)
 endif()
 
 target_link_libraries(pde1d PRIVATE
@@ -164,13 +178,7 @@ endif()
 
 string(TOLOWER ${PSE} PSEL)
 if(${PSEL} STREQUAL matlab)
-if(${CMAKE_SYSTEM_NAME} STREQUAL Windows)
-set(mexext mexw64)
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
-set(mexext mexa64)
-elseif(${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
-set(mexext mexmaci64)
-endif()
+  set(mexext ${Matlab_MEX_EXTENSION})
 else()
   set(mexext mex)
 endif()

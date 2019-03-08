@@ -19,7 +19,7 @@
 #include "PDE1dException.h"
 
 
-SunVector::SunVector(size_t n) : 
+SunVector::SunVector(size_t n) :
 _SundialsVector_(N_VNew_Serial((int) n)),
 Eigen::Map<Eigen::VectorXd>(NV_DATA_S(nv), n)
 {
