@@ -16,6 +16,7 @@ add_definitions(-DNOMINMAX)
 elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL GNU)
 add_compile_options("-std=gnu++0x")
 #add_compile_options("-H")
+set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
 find_path(EIGEN_ROOT signature_of_eigen3_matrix_library 
@@ -23,58 +24,57 @@ find_path(EIGEN_ROOT signature_of_eigen3_matrix_library
 message(STATUS "EIGEN_ROOT=" ${EIGEN_ROOT})
 include_directories(${EIGEN_ROOT})
 
-
-set(LINEAR_SOLVER "KLU" CACHE STRING "Sparse Linear Solver")
+set(LINEAR_SOLVER "Eigen" CACHE STRING "Sparse Linear Solver")
 set_property(CACHE LINEAR_SOLVER PROPERTY STRINGS Eigen KLU)
 message(STATUS "LINEAR_SOLVER=" ${LINEAR_SOLVER})
 
 if(${LINEAR_SOLVER} STREQUAL KLU)
-# suitesparse to get KLU for sundials ida
-set(SUITESPARSE_ROOT SUITESPARSE_ROOT-NOTFOUND CACHE PATH "Path to SuiteSparse")
-if(SUITESPARSE_ROOT)
-set(SUITESPARSE_LIB_DIR "${SUITESPARSE_ROOT}/lib64"
-    CACHE PATH "Path to Suitesparse libraries"
-		)
-set(SUITESPARSE_INC_DIR "${SUITESPARSE_ROOT}/include/suitesparse"
-    CACHE PATH "Path to Suitesparse includes"
-		)
-endif()
-if(NOT SUITESPARSE_LIB_DIR)
-  message(SEND_ERROR "Path to SuiteSparse libraries not found")
-endif()
-if(NOT SUITESPARSE_INC_DIR)
-  message(SEND_ERROR "Path to SuiteSparse include files not found")
-endif()
-message(STATUS "SUITESPARSE_INC_DIR=" ${SUITESPARSE_INC_DIR})
-include_directories(${SUITESPARSE_INC_DIR})
-# 
-# With Visual Studio we want different debug/release libraries
-# depending on the IDE setting. So they can't be identified explicitly
-# at configuration time.
-if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
-set(SUITESPARSE_LIBS 
-libklu
-libamd
-libcolamd
-libbtf
-suitesparseconfig)
+	# suitesparse to get KLU for sundials ida
+	set(SUITESPARSE_ROOT SUITESPARSE_ROOT-NOTFOUND CACHE PATH "Path to SuiteSparse")
+	if(SUITESPARSE_ROOT)
+	set(SUITESPARSE_LIB_DIR "${SUITESPARSE_ROOT}/lib64"
+			CACHE PATH "Path to Suitesparse libraries"
+			)
+	set(SUITESPARSE_INC_DIR "${SUITESPARSE_ROOT}/include/suitesparse"
+			CACHE PATH "Path to Suitesparse includes"
+			)
+	endif()
+	if(NOT SUITESPARSE_LIB_DIR)
+		message(SEND_ERROR "Path to SuiteSparse libraries not found")
+	endif()
+	if(NOT SUITESPARSE_INC_DIR)
+		message(SEND_ERROR "Path to SuiteSparse include files not found")
+	endif()
+	message(STATUS "SUITESPARSE_INC_DIR=" ${SUITESPARSE_INC_DIR})
+	include_directories(${SUITESPARSE_INC_DIR})
+	# 
+	# With Visual Studio we want different debug/release libraries
+	# depending on the IDE setting. So they can't be identified explicitly
+	# at configuration time.
+	if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
+	set(SUITESPARSE_LIBS 
+	libklu
+	libamd
+	libcolamd
+	libbtf
+	suitesparseconfig)
+	else()
+	find_library(SS_KLU NAMES klu PATHS ${SUITESPARSE_LIB_DIR})
+	find_library(SS_AMD NAMES amd PATHS ${SUITESPARSE_LIB_DIR})
+	find_library(SS_COLAMD NAMES colamd PATHS ${SUITESPARSE_LIB_DIR})
+	find_library(SS_BTF NAMES btf PATHS ${SUITESPARSE_LIB_DIR})
+	find_library(SS_CONFIG NAMES suitesparseconfig PATHS ${SUITESPARSE_LIB_DIR})
+	set(SUITESPARSE_LIBS
+	${SS_KLU}
+	${SS_AMD}
+	${SS_COLAMD}
+	${SS_BTF}
+	${SS_CONFIG}
+	)
+	endif()
 else()
-find_library(SS_KLU NAMES klu PATHS ${SUITESPARSE_LIB_DIR})
-find_library(SS_AMD NAMES amd PATHS ${SUITESPARSE_LIB_DIR})
-find_library(SS_COLAMD NAMES colamd PATHS ${SUITESPARSE_LIB_DIR})
-find_library(SS_BTF NAMES btf PATHS ${SUITESPARSE_LIB_DIR})
-find_library(SS_CONFIG NAMES suitesparseconfig PATHS ${SUITESPARSE_LIB_DIR})
-set(SUITESPARSE_LIBS
-${SS_KLU}
-${SS_AMD}
-${SS_COLAMD}
-${SS_BTF}
-${SS_CONFIG}
-)
-endif()
-else()
-add_definitions(-DUSE_EIGEN_LU)
-endif()
+  add_definitions(-DUSE_EIGEN_LU)
+endif() # LINEAR_SOLVER
 
 # sundials ida
 set(SUNDIALS_ROOT SUNDIALS_ROOT-NOTFOUND CACHE PATH "Path to Sundials")
@@ -83,8 +83,10 @@ if(NOT SUNDIALS_ROOT)
 endif()
 set(SUNDIALS_LIBS
 sundials_ida
-sundials_sunlinsolklu
 sundials_nvecserial)
+if(${LINEAR_SOLVER} STREQUAL KLU)
+set(SUNDIALS_LIBS ${SUNDIALS_LIBS} sundials_sunlinsolklu)
+endif()
 set(SUNDIALS_LIB_DIR ${SUNDIALS_ROOT}/lib)
 include_directories(${SUNDIALS_ROOT}/include)
 message(STATUS "SUNDIALS_ROOT=" ${SUNDIALS_ROOT})
@@ -92,7 +94,7 @@ message(STATUS "SUNDIALS_ROOT=" ${SUNDIALS_ROOT})
 if(0)
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
 find_package(SUNDIALS REQUIRED)
-endif()
+endif() 
 
 find_package( Boost 1.55 REQUIRED )
 include_directories(${Boost_INCLUDE_DIRS})
@@ -140,11 +142,15 @@ FILE(GLOB PDE_MEX_H_FILES pde1dmex/*.h)
 FILE(GLOB PDE_JAC_SRC FDJacobian/*.cpp FDJacobian/FDJacobian.c)
 FILE(GLOB PDE_JAC_H_FILES FDJacobian/*.h FDJacobian/FDJacobian.h)
 
-link_directories(${SUNDIALS_LIB_DIR} ${SUITESPARSE_LIB_DIR} ${MEX_LIB_DIR})
-
 include_directories(./util)
 include_directories(./pde1dlib)
 include_directories(./FDJacobian)
+
+link_directories(${SUNDIALS_LIB_DIR} ${MEX_LIB_DIR})
+if(${LINEAR_SOLVER} STREQUAL KLU)
+link_directories(${SUITESPARSE_LIB_DIR})
+endif()
+
 
 add_library(pde1dLib 
 ${PDE_LIB_SRC} 
@@ -173,7 +179,7 @@ pde1dLib
 )
 
 if(${LINEAR_SOLVER} STREQUAL KLU)
-target_link_libraries(pde1d PRIVATE ${SUITESPARSE_LIBS})
+  target_link_libraries(pde1d PRIVATE ${SUITESPARSE_LIBS})
 endif()
 
 string(TOLOWER ${PSE} PSEL)
