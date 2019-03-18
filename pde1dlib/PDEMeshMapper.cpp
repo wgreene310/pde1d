@@ -56,7 +56,7 @@ PDEMeshMapper::PDEMeshMapper(const RealVector &srcMesh, const PDEModel &model,
 #endif
     if (lwr == begin) {
       if ((srcMesh[0] - xd) > tol) {
-        char msg[80];
+        char msg[128];
         sprintf(msg, "ODE coupling point at %12.3e is less than left-most mesh point, %12.3e\n",
           xd, srcMesh[0]);
         throw PDE1dException("pde1d:invalid_map_point", msg);
@@ -65,7 +65,7 @@ PDEMeshMapper::PDEMeshMapper(const RealVector &srcMesh, const PDEModel &model,
     }
     else if (lwr == end) {
       if (xd - srcMesh[numSrc - 1] > tol) {
-        char msg[80];
+        char msg[128];
         sprintf(msg, "ODE coupling point at %12.3e is greater than right-most mesh point, %12.3e\n",
           xd, srcMesh[numSrc - 1]);
         throw PDE1dException("pde1d:invalid_map_point", msg);
