@@ -19,120 +19,86 @@ add_compile_options("-std=gnu++0x")
 set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
-find_path(EIGEN_ROOT signature_of_eigen3_matrix_library 
-          DOC "Path to Eigen library")
-message(STATUS "EIGEN_ROOT=" ${EIGEN_ROOT})
-include_directories(${EIGEN_ROOT})
+# Want to find Eigen and check version even if it hasn't been formally "installed".
+# In Eigen 3.3 this requires find_package in module mode for the un-installed case and
+# config mode for the installed case.
+if(EIGEN_ROOT)
+  set(CMAKE_MODULE_PATH ${EIGEN_ROOT} ; ${EIGEN_ROOT}/cmake)
+	set(CMAKE_PREFIX_PATH ${EIGEN_ROOT}/share) # config mode
+	set(EIGEN3_INCLUDE_DIR  ${EIGEN_ROOT})
+	set(Eigen3_FIND_VERSION 3.3)
+endif() # EIGEN_ROOT
+find_package(Eigen3 ${Eigen3_FIND_VERSION} REQUIRED)
+if(NOT EIGEN3_FOUND)
+  message(SEND_ERROR "Eigen matrix library not found.")
+endif()
+# Eigen 3.3 FindEigen3.cmake not issuing error for wrong version
+if(EIGEN3_VERSION AND EIGEN3_VERSION VERSION_LESS Eigen3_FIND_VERSION)
+  message(SEND_ERROR "Eigen version must be at least " ${Eigen3_FIND_VERSION})
+endif()
+message(STATUS "EIGEN3_INCLUDE_DIR=" ${EIGEN3_INCLUDE_DIR})
+include_directories(${EIGEN3_INCLUDE_DIR})
+
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 set(LINEAR_SOLVER "Eigen" CACHE STRING "Sparse Linear Solver")
 set_property(CACHE LINEAR_SOLVER PROPERTY STRINGS Eigen KLU)
 message(STATUS "LINEAR_SOLVER=" ${LINEAR_SOLVER})
 
-if(${LINEAR_SOLVER} STREQUAL KLU)
+string(TOLOWER ${LINEAR_SOLVER} LSL)
+if(${LSL} STREQUAL klu)
 	# suitesparse to get KLU for sundials ida
-	set(SUITESPARSE_ROOT SUITESPARSE_ROOT-NOTFOUND CACHE PATH "Path to SuiteSparse")
-	if(SUITESPARSE_ROOT)
-	set(SUITESPARSE_LIB_DIR "${SUITESPARSE_ROOT}/lib64"
-			CACHE PATH "Path to Suitesparse libraries"
-			)
-	set(SUITESPARSE_INC_DIR "${SUITESPARSE_ROOT}/include/suitesparse"
-			CACHE PATH "Path to Suitesparse includes"
-			)
-	endif()
-	if(NOT SUITESPARSE_LIB_DIR)
-		message(SEND_ERROR "Path to SuiteSparse libraries not found")
-	endif()
-	if(NOT SUITESPARSE_INC_DIR)
-		message(SEND_ERROR "Path to SuiteSparse include files not found")
-	endif()
-	message(STATUS "SUITESPARSE_INC_DIR=" ${SUITESPARSE_INC_DIR})
-	include_directories(${SUITESPARSE_INC_DIR})
-	# 
-	# With Visual Studio we want different debug/release libraries
-	# depending on the IDE setting. So they can't be identified explicitly
-	# at configuration time.
-	if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
-	set(SUITESPARSE_LIBS 
-	libklu
-	libamd
-	libcolamd
-	libbtf
-	suitesparseconfig)
-	else()
-	find_library(SS_KLU NAMES klu PATHS ${SUITESPARSE_LIB_DIR})
-	find_library(SS_AMD NAMES amd PATHS ${SUITESPARSE_LIB_DIR})
-	find_library(SS_COLAMD NAMES colamd PATHS ${SUITESPARSE_LIB_DIR})
-	find_library(SS_BTF NAMES btf PATHS ${SUITESPARSE_LIB_DIR})
-	find_library(SS_CONFIG NAMES suitesparseconfig PATHS ${SUITESPARSE_LIB_DIR})
-	set(SUITESPARSE_LIBS
-	${SS_KLU}
-	${SS_AMD}
-	${SS_COLAMD}
-	${SS_BTF}
-	${SS_CONFIG}
-	)
-	endif()
-else()
+	set(SUITESPARSE_COMP_NAMES suitesparseconfig; KLU; AMD; COLAMD; BTF)
+	#set(SuiteSparse_VERBOSE ON)
+  set(SUITESPARSE_ROOT SUITESPARSE_ROOT-NOTFOUND CACHE PATH "Path to SuiteSparse solver")
+	set(SuiteSparse_DIR ${SUITESPARSE_ROOT})
+	find_package(SuiteSparse REQUIRED 
+	COMPONENTS ${SUITESPARSE_COMP_NAMES})
+	foreach(cn IN LISTS SUITESPARSE_COMP_NAMES)
+	  string(TOUPPER ${cn} cnUC)
+		include_directories(${SuiteSparse_${cnUC}_INCLUDE_DIR})
+		list(APPEND SUITESPARSE_LIBS_RELEASE ${SuiteSparse_${cnUC}_LIBRARY_RELEASE})
+		list(APPEND SUITESPARSE_LIBS_DEBUG ${SuiteSparse_${cnUC}_LIBRARY_DEBUG})
+	endforeach()
+	set(USE_KLU TRUE)
+elseif(${LSL} STREQUAL eigen)
   add_definitions(-DUSE_EIGEN_LU)
+else()
+  message(SEND_ERROR "Unsupported linear solver: " ${LINEAR_SOLVER})
 endif() # LINEAR_SOLVER
 
-# sundials ida
-set(SUNDIALS_ROOT SUNDIALS_ROOT-NOTFOUND CACHE PATH "Path to Sundials")
-if(NOT SUNDIALS_ROOT)
-  message(SEND_ERROR "Path to Sundials not found")
+#
+# find sundials includes and libs
+#
+set(SUNDIALS_LIBS_NAMES sundials_ida sundials_nvecserial sundials_sunmatrixsparse)
+if(USE_KLU)
+  set(SUNDIALS_LIBS_NAMES ${SUNDIALS_LIBS_NAMES} sundials_sunlinsolklu)
 endif()
-set(SUNDIALS_LIBS
-sundials_ida
-sundials_nvecserial)
-if(${LINEAR_SOLVER} STREQUAL KLU)
-set(SUNDIALS_LIBS ${SUNDIALS_LIBS} sundials_sunlinsolklu)
-endif()
-set(SUNDIALS_LIB_DIR ${SUNDIALS_ROOT}/lib)
-include_directories(${SUNDIALS_ROOT}/include)
-message(STATUS "SUNDIALS_ROOT=" ${SUNDIALS_ROOT})
-
-if(0)
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
-find_package(SUNDIALS REQUIRED)
-endif() 
+find_package(SUNDIALS 3.1 REQUIRED COMPONENTS ${SUNDIALS_LIBS_NAMES})
+include_directories(${SUNDIALS_INCLUDE_DIR}/../)
 
 find_package( Boost 1.55 REQUIRED )
 include_directories(${Boost_INCLUDE_DIRS})
 
-if(${PSE} STREQUAL Octave)
-set(OCTAVE_REL 4.4.0 CACHE STRING "Octave Version")
-set(OCTAVE_ROOT OCTAVE_ROOT-NOTFOUND CACHE PATH "Path to Octave")
-if(NOT OCTAVE_ROOT)
-  message(SEND_ERROR "Path to Octave not found")
-endif()
-message(STATUS "OCTAVE_ROOT=" ${OCTAVE_ROOT})
-message(STATUS "OCTAVE_REL=" ${OCTAVE_REL})
-file(GLOB_RECURSE OCTAVE_MEX_FILE ${OCTAVE_ROOT}/*/mex.h)
-if(NOT OCTAVE_MEX_FILE)
-    message(SEND_ERROR "File mex.h not found")
-endif()
-get_filename_component(OCTAVE_INCLUDE_DIR ${OCTAVE_MEX_FILE} DIRECTORY)
-include_directories(${OCTAVE_INCLUDE_DIR})
-set(OCTAVE_DEV_ROOT ${OCTAVE_INCLUDE_DIR}/../../..)
-set(MEX_LIB_DIR ${OCTAVE_DEV_ROOT}/lib/octave/${OCTAVE_REL})
-message(STATUS "MEX_LIB_DIR=" ${MEX_LIB_DIR})
-if(${CMAKE_SYSTEM_NAME} STREQUAL Windows)
-  set(MEX_LIBS ${MEX_LIB_DIR}/liboctave.dll.a
-               ${MEX_LIB_DIR}/liboctinterp.dll.a)
+string(TOLOWER ${PSE} PSEL)
+if(${PSEL} STREQUAL octave)
+	find_package(Octave 5.5 REQUIRED COMPONENTS Development)
+	include_directories(${Octave_INCLUDE_DIRS})
+	set(MEX_LIBS ${Octave_OCTAVE_LIBRARY} ${Octave_INTERP_LIBRARY})
+	message(STATUS "Path to Octave include files: " ${Octave_INCLUDE_DIRS})
+elseif(${PSEL} STREQUAL matlab)
+	find_package( Matlab REQUIRED COMPONENTS MX_LIBRARY)
+	set(MATLAB_ROOT MATLAB_ROOT-NOTFOUND CACHE PATH "Path to MATLAB")
+	if(NOT MATLAB_ROOT)
+		message(SEND_ERROR "Path to MATLAB not found")
+	endif()
+	include_directories(${Matlab_INCLUDE_DIRS})
+	set(MEX_LIBS 
+	${Matlab_MEX_LIBRARY} 
+	${Matlab_MX_LIBRARY}
+	)
 else()
-  set(MEX_LIBS octave octinterp)
-endif()
-else()
-find_package( Matlab REQUIRED COMPONENTS MX_LIBRARY)
-set(MATLAB_ROOT MATLAB_ROOT-NOTFOUND CACHE PATH "Path to MATLAB")
-if(NOT MATLAB_ROOT)
-  message(SEND_ERROR "Path to MATLAB not found")
-endif()
-include_directories(${Matlab_INCLUDE_DIRS})
-set(MEX_LIBS 
-${Matlab_MEX_LIBRARY} 
-${Matlab_MX_LIBRARY}
-)
+  message(SEND_ERROR "Invalid PSE: " ${PSE})
 endif()
 
 FILE(GLOB PDE_LIB_SRC pde1dlib/*.cpp)
@@ -145,12 +111,6 @@ FILE(GLOB PDE_JAC_H_FILES FDJacobian/*.h FDJacobian/FDJacobian.h)
 include_directories(./util)
 include_directories(./pde1dlib)
 include_directories(./FDJacobian)
-
-link_directories(${SUNDIALS_LIB_DIR} ${MEX_LIB_DIR})
-if(${LINEAR_SOLVER} STREQUAL KLU)
-link_directories(${SUITESPARSE_LIB_DIR})
-endif()
-
 
 add_library(pde1dLib 
 ${PDE_LIB_SRC} 
@@ -173,13 +133,17 @@ target_sources (pde1d PUBLIC ${CMAKE_SOURCE_DIR}/mexFunction.def)
 endif()
 
 target_link_libraries(pde1d PRIVATE
-${SUNDIALS_LIBS}
-${MEX_LIBS}
-pde1dLib
+  pde1dLib
+  debug "${SUNDIALS_LIBS_DEBUG}"
+  optimized "${SUNDIALS_LIBS_RELEASE}"
+  ${MEX_LIBS}
 )
 
-if(${LINEAR_SOLVER} STREQUAL KLU)
-  target_link_libraries(pde1d PRIVATE ${SUITESPARSE_LIBS})
+if(USE_KLU)
+  target_link_libraries(pde1d PRIVATE 
+	debug "${SUITESPARSE_LIBS_DEBUG}"
+	optimized "${SUITESPARSE_LIBS_RELEASE}"
+	)
 endif()
 
 string(TOLOWER ${PSE} PSEL)
