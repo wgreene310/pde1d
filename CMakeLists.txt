@@ -70,10 +70,16 @@ endif() # LINEAR_SOLVER
 #
 # find sundials includes and libs
 #
-set(SUNDIALS_LIBS_NAMES sundials_ida sundials_nvecserial sundials_sunmatrixsparse)
+set(SUNDIALS_LIBS_NAMES sundials_ida sundials_nvecserial)
 if(USE_KLU)
   set(SUNDIALS_LIBS_NAMES ${SUNDIALS_LIBS_NAMES} sundials_sunlinsolklu)
 endif()
+# sundials version must be > 3
+# If solver is KLU, sundials must be configured with SuiteSparse.
+# This combination may have to be built in a local directory so we
+# link to the sundials libs statically to avoid having to set
+# LD_LIBRARY_PATH when running the PSE
+set(SUNDIALS_USE_STATIC_LIBRARIES TRUE)
 find_package(SUNDIALS 3.1 REQUIRED COMPONENTS ${SUNDIALS_LIBS_NAMES})
 include_directories(${SUNDIALS_INCLUDE_DIR}/../)
 
