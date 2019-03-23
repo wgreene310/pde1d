@@ -179,8 +179,8 @@ if(Octave_Development_FOUND)
     set_target_properties(Octave::Octinterp PROPERTIES
                           IMPORTED_LOCATION ${Octave_INTERP_LIBRARY}
                           INTERFACE_INCLUDE_DIRECTORIES ${Octave_INCLUDE_DIR})
-    target_link_libraries(Octave::Octinterp INTERFACE
-                          Octave::Octave)
+    #target_link_libraries(Octave::Octinterp INTERFACE
+                          #Octave::Octave)
   endif()
 
 endif()

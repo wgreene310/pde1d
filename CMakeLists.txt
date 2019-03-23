@@ -3,7 +3,9 @@ cmake_minimum_required (VERSION 3.0)
 project(pde1d)
 SET( CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE )
 cmake_policy(SET CMP0008 NEW)
-cmake_policy(SET CMP0074 NEW)
+if(POLICY CMP0074)
+  cmake_policy(SET CMP0074 NEW)
+endif()
 
 set(PSE "Octave" CACHE STRING "Problem solving environment")
 set_property(CACHE PSE PROPERTY STRINGS Octave MATLAB)
@@ -18,6 +20,8 @@ add_compile_options("-std=gnu++0x")
 #add_compile_options("-H")
 set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Want to find Eigen and check version even if it hasn't been formally "installed".
 # In Eigen 3.3 this requires find_package in module mode for the un-installed case and
