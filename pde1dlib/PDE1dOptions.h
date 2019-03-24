@@ -26,6 +26,7 @@ public:
     ICMethod = 0;
     ICDiagnostics = 0;
     jacDiagnostics = 0;
+    eqnDiagnostics = 0;
     polyOrder = 1;
     viewMesh = 1;
     useDiagMassMat = false;
@@ -46,6 +47,8 @@ public:
   void setICDiagnostics(int diag) { ICDiagnostics = diag; }
   int getJacDiagnostics() const { return jacDiagnostics; }
   void setJacDiagnostics(int diag) { jacDiagnostics = diag; }
+  int getEqnDiagnostics() const { return eqnDiagnostics; }
+  void setEqnDiagnostics(int diag) { eqnDiagnostics = diag; }
   void setPolyOrder(int pOrder) { polyOrder = pOrder;  }
   int getPolyOrder() const {
     return polyOrder;
@@ -68,6 +71,7 @@ private:
   int ICMethod;
   int ICDiagnostics;
   int jacDiagnostics;
+  int eqnDiagnostics;
   int polyOrder;
   int viewMesh;
   bool useDiagMassMat;

@@ -48,7 +48,7 @@ namespace {
   void getOptions(const mxArray *opts, PDE1dOptions &pdeOpts,
     mxArray* &eventFunc) {
     if (!mxIsStruct(opts))
-      pdeErrMsgIdAndTxt("pde1d:optins_type", 
+      pdeErrMsgIdAndTxt("pde1d:options_type", 
       "The last options argument to " FUNC_NAME " must be a struct.");
     int n = mxGetNumberOfFields(opts);
     for (int i = 0; i < n; i++) {
@@ -101,6 +101,10 @@ namespace {
       else if (boost::iequals(ni, "jacdiagnostics")) {
         int jacDiag = (int) mxGetScalar(val);
         pdeOpts.setJacDiagnostics(jacDiag);
+      }
+      else if (boost::iequals(ni, "eqndiagnostics")) {
+        int eqnDiag = (int)mxGetScalar(val);
+        pdeOpts.setEqnDiagnostics(eqnDiag);
       }
       else if (boost::iequals(ni, "polyorder")) {
         int porder = (int)mxGetScalar(val);

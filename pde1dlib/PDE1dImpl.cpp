@@ -25,8 +25,6 @@ using std::endl;
 
 #define DEBUG_MATS 0
 
-#define CALL_TEST_FUNC 0
-
 #define DAE_Y_INIT 0
 
 #define BAND_SOLVER 0
@@ -279,11 +277,11 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
     dirConsFlagsRight[i] = bc.qr[i] == 0;
   }
 
-#if CALL_TEST_FUNC
-  testMats(y0);
-  //sol.setSolutionVector(0, 0, y0);
-  return 0;
-#endif
+  if (options.getEqnDiagnostics()) {
+    testMats(y0);
+    //sol.setSolutionVector(0, 0, y0);
+    return 0;
+  }
 #if 0
   testODEJacobian(y0);
 #endif
@@ -740,7 +738,7 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
       MapMat f2(F.data(), numDepVars, nnfe);
       meshMapper->mapFunction(u2, odeU);
       meshMapper->mapFunctionDer(u2, odeDuDx);
-      meshMapper->mapFunctionDer(f2, odeFlux);
+      meshMapper->mapFunction(f2, odeFlux);
       MapMat up2(up.data(), numDepVars, nnfe);
       meshMapper->mapFunction(up2, odeDuDt);
       meshMapper->mapFunctionDer(up2, odeDuDxDt);
@@ -862,12 +860,14 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
 
 void PDE1dImpl::testMats(const RealVector &y0)
 {
+  const int diag = options.getEqnDiagnostics();
   cout << "numFEEqns=" << numFEEqns << endl;
-  SunVector u(numFEEqns), up(numFEEqns), R(numFEEqns);
-#if 0
-  for (int i = 0; i < numFEEqns; i++) {
-    u(i) = 0;
-    up(i) = 1;
+  cout << "totalNumEqns=" << totalNumEqns << endl;
+  SunVector u(totalNumEqns), up(totalNumEqns), R(totalNumEqns);
+#if 1
+  for (int i = 0; i < totalNumEqns; i++) {
+    u(i) = i;
+    up(i) = i;
   }
 #else
   u = y0;
@@ -875,9 +875,10 @@ void PDE1dImpl::testMats(const RealVector &y0)
 #endif
 #if 1
   cout << "u=" << u.transpose() << endl;
-  RealVector Cxd = RealVector::Zero(numFEEqns);
-  RealVector F = RealVector::Zero(numFEEqns);
-  RealVector S = RealVector::Zero(numFEEqns);
+  cout << "up=" << up.transpose() << endl;
+  RealVector Cxd = RealVector::Zero(totalNumEqns);
+  RealVector F = RealVector::Zero(totalNumEqns);
+  RealVector S = RealVector::Zero(totalNumEqns);
   calcGlobalEqns(0, u, up, Cxd, F, S);
   cout << "Cxd=" << Cxd.transpose() << endl;
   cout << "F=" << F.transpose() << endl;
@@ -890,15 +891,16 @@ void PDE1dImpl::testMats(const RealVector &y0)
 #endif
   cout << "R\n" << R.transpose() << endl;
 #endif
-#if 1
-  SparseMat jac(numFEEqns, numFEEqns);
-  calcJacobian(0, 1, 0, u, up, R, jac);
-  cout << "jac\n" << jac.toDense() << endl;
-#endif
-#if 1
-  calcJacobian(0, 0, 1, u, up, R, jac);
-  cout << "mass matrix\n" << jac.toDense() << endl;
-#endif
+  if (diag > 1) {
+    SparseMat jac(totalNumEqns, totalNumEqns);
+    calcJacobian(0, 1, 0, u, up, R, jac);
+    cout << "jac\n" << jac.toDense() << endl;
+  }
+  if (diag > 1) {
+    SparseMat jac(totalNumEqns, totalNumEqns);
+    calcJacobian(0, 0, 1, u, up, R, jac);
+    cout << "mass matrix\n" << jac.toDense() << endl;
+  }
   throw PDE1dException("pde1d:testResidual", "test complete.");
 }
 
