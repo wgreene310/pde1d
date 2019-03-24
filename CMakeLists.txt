@@ -92,7 +92,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 string(TOLOWER ${PSE} PSEL)
 if(${PSEL} STREQUAL octave)
-	find_package(Octave 5.5 REQUIRED COMPONENTS Development)
+	find_package(Octave 5.0 REQUIRED COMPONENTS Development)
 	include_directories(${Octave_INCLUDE_DIRS})
 	set(MEX_LIBS ${Octave_OCTAVE_LIBRARY} ${Octave_INTERP_LIBRARY})
 	message(STATUS "Path to Octave include files: " ${Octave_INCLUDE_DIRS})

@@ -98,22 +98,28 @@ if(Development IN_LIST Octave_FIND_COMPONENTS)
                     ERROR_QUIET
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+		#message("Octave_LIB1=" ${Octave_LIB1})
+		#message("Octave_LIB2=" ${Octave_LIB2})
+
 					 
 		if(WIN32)
-			SET(CMAKE_FIND_LIBRARY_SUFFIXES "" ".lib" ".a" ".dll")
+			SET(CMAKE_FIND_LIBRARY_SUFFIXES "" ".lib" ".a" ".dll.a")
 		endif()
 
     find_library(Octave_INTERP_LIBRARY
-               NAMES octinterp octinterp.dll
+               NAMES octinterp liboctinterp
                PATHS "${Octave_LIB1}" "${Octave_LIB2}"
                NO_DEFAULT_PATH
               )
+							
 
     find_library(Octave_OCTAVE_LIBRARY
-                 NAMES octave.dll octave
+                 NAMES  octave liboctave
                  PATHS ${Octave_LIB1} ${Octave_LIB2}
                  NO_DEFAULT_PATH
                 )
+								
+			#message("Octave_OCTAVE_LIBRARY=" ${Octave_OCTAVE_LIBRARY})
 							 
 		if(WIN32)
 		  unset(CMAKE_FIND_LIBRARY_SUFFIXES)
