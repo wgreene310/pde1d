@@ -97,6 +97,10 @@ if(Development IN_LIST Octave_FIND_COMPONENTS)
                     OUTPUT_VARIABLE Octave_LIB2
                     ERROR_QUIET
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
+		execute_process(COMMAND ${Octave_CONFIG_EXECUTABLE} -p VERSION
+                    OUTPUT_VARIABLE Octave_VERSION
+                    ERROR_QUIET
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 		#message("Octave_LIB1=" ${Octave_LIB1})
 		#message("Octave_LIB2=" ${Octave_LIB2})
