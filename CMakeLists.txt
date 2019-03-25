@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.0)
+cmake_minimum_required (VERSION 3.1)
 
 project(pde1d)
 SET( CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE )
@@ -16,8 +16,6 @@ add_compile_options("/wd4996")
 add_compile_options("/wd4477")
 add_definitions(-DNOMINMAX)
 elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL GNU)
-add_compile_options("-std=gnu++0x")
-#add_compile_options("-H")
 set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
@@ -136,7 +134,7 @@ ${PDE_MEX_SRC}
 ${PDE_MEX_H_FILES}
 )
 
-#target_compile_features(pde1d PUBLIC cxx_std_11)
+target_compile_features(pde1d PUBLIC cxx_std_11)
 
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
 target_sources (pde1d PUBLIC ${CMAKE_SOURCE_DIR}/mexFunction.def)
