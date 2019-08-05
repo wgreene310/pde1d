@@ -104,8 +104,8 @@ void PDEInitConditions::calcShampineAlgo(double t0,
   double maxRes = 1;
   int diag = pdeImpl.getOptions().getICDiagnostics();
   if (diag > 1) {
-    cout << "u0=" << yNew.transpose() << endl;
-    cout << "up0=" << ypNew.transpose() << endl;
+    ::print(yNew.getNV(), "y0");
+    ::print(ypNew.getNV(), "yp0");
   }
   double absTol = pdeImpl.getOptions().getAbsTol();
   Eigen::ColPivHouseholderQR<RealMatrix> qr;

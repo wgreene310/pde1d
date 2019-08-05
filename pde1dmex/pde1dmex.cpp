@@ -54,6 +54,9 @@ namespace {
     for (int i = 0; i < n; i++) {
       const char *ni = mxGetFieldNameByNumber(opts, i);
       mxArray *val = mxGetFieldByNumber(opts, 0, i);
+      // pdepe apparently allows the options field to be set
+      // with odeset. This populates all allowable fileds with empty objects
+      if (mxIsEmpty(val)) continue;
       if (boost::iequals(ni, "reltol")) 
         pdeOpts.setRelTol(mxGetScalar(val));
       else if (boost::iequals(ni, "abstol"))

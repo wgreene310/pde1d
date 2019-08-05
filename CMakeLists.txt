@@ -11,11 +11,11 @@ set(PSE "Octave" CACHE STRING "Problem solving environment")
 set_property(CACHE PSE PROPERTY STRINGS Octave MATLAB)
 
 #message(STATUS "CMAKE_CXX_COMPILER_ID=" ${CMAKE_CXX_COMPILER_ID})
-if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
+if(MSVC)
 add_compile_options("/wd4996")
 add_compile_options("/wd4477")
 add_definitions(-DNOMINMAX)
-elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL GNU)
+elseif(GNU)
 set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
@@ -96,10 +96,6 @@ if(${PSEL} STREQUAL octave)
 	message(STATUS "Path to Octave include files: " ${Octave_INCLUDE_DIRS})
 elseif(${PSEL} STREQUAL matlab)
 	find_package( Matlab REQUIRED COMPONENTS MX_LIBRARY)
-	set(MATLAB_ROOT MATLAB_ROOT-NOTFOUND CACHE PATH "Path to MATLAB")
-	if(NOT MATLAB_ROOT)
-		message(SEND_ERROR "Path to MATLAB not found")
-	endif()
 	include_directories(${Matlab_INCLUDE_DIRS})
 	set(MEX_LIBS 
 	${Matlab_MEX_LIBRARY} 
@@ -136,7 +132,7 @@ ${PDE_MEX_H_FILES}
 
 target_compile_features(pde1d PUBLIC cxx_std_11)
 
-if(${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
+if(MSVC)
 target_sources (pde1d PUBLIC ${CMAKE_SOURCE_DIR}/mexFunction.def)
 endif()
 

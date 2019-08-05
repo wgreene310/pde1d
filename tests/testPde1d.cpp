@@ -40,10 +40,10 @@ int main()
   }
   const RealMatrix &u = pdeSol.getSolution();
   printf("size u=%d,%d\n", u.rows(), u.cols());
-  int ntr = u.rows();
+  auto ntr = u.rows();
   FILE *fp = fopen("pde1D.out", "w");
   RealVector x = pde.getMesh();
-  int nx = x.size();
+  auto nx = x.size();
   int neq = pde.getNumPDE();
   int ii = 0;
   for (int i = 0; i < nx; i++) {
