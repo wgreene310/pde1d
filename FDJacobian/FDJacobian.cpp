@@ -45,7 +45,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   const integer* liwa)
 {
   /* System generated locals */
-  integer i__1, i__2, i__3;
+  integer i__1, i__2;
 
   /* Local variables */
   static integer i__, j, k, jp, ir;
@@ -189,13 +189,12 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
     return 0;
   }
   i__1 = *npairs;
-  for (k = 1; k <= i__1; ++k) {
+  for (int k = 1; k <= i__1; ++k) {
     *info = -k;
     if (indrow[k] < 1 || indrow[k] > * m || indcol[k] < 1 || indcol[k] > *
       n) {
       return 0;
     }
-    /* L10: */
   }
   *info = 1;
 
@@ -207,25 +206,23 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /*     NON-ZERO ELEMENTS OF A. */
 
   i__1 = *m;
-  for (i__ = 1; i__ <= i__1; ++i__) {
+  for (int i__ = 1; i__ <= i__1; ++i__) {
     iwa[i__] = 0;
   }
   nnz = 1;
   i__1 = *n;
-  for (j = 1; j <= i__1; ++j) {
+  for (int j = 1; j <= i__1; ++j) {
     k = nnz;
     i__2 = jpntr[j + 1] - 1;
-    for (jp = jpntr[j]; jp <= i__2; ++jp) {
+    for (int jp = jpntr[j]; jp <= i__2; ++jp) {
       ir = indrow[jp];
       if (iwa[ir] != j) {
         indrow[nnz] = ir;
         ++nnz;
         iwa[ir] = j;
       }
-      /* L30: */
     }
     jpntr[j] = k;
-    /* L40: */
   }
   jpntr[*n + 1] = nnz;
 
@@ -237,9 +234,9 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
 
   *mingrp = 0;
   i__1 = *m;
-  for (i__ = 1; i__ <= i__1; ++i__) {
+  for (int i__ = 1; i__ <= i__1; ++i__) {
     /* Computing MAX */
-    i__2 = *mingrp, i__3 = ipntr[i__ + 1] - ipntr[i__];
+    int i__2 = *mingrp, i__3 = ipntr[i__ + 1] - ipntr[i__];
     *mingrp = max(i__2, i__3);
   }
 
@@ -280,7 +277,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   if (numgrp < *maxgrp) {
     *maxgrp = numgrp;
     i__1 = *n;
-    for (j = 1; j <= i__1; ++j) {
+    for (int j = 1; j <= i__1; ++j) {
       ngrp[j] = iwa[j];
     }
 
@@ -305,7 +302,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   if (numgrp < *maxgrp) {
     *maxgrp = numgrp;
     i__1 = *n;
-    for (j = 1; j <= i__1; ++j) {
+    for (int j = 1; j <= i__1; ++j) {
       ngrp[j] = iwa[j];
     }
   }
@@ -317,7 +314,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   integer* indcol, integer* ipntr, integer* ndeg, integer* iwa)
 {
   /* System generated locals */
-  integer i__1, i__2, i__3;
+  integer i__1, i__2;
 
   /* Local variables */
   static integer ic, ip, jp, ir, jcol;
@@ -395,7 +392,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
 
   /* Function Body */
   i__1 = *n;
-  for (jp = 1; jp <= i__1; ++jp) {
+  for (int jp = 1; jp <= i__1; ++jp) {
     ndeg[jp] = 0;
     iwa[jp] = 0;
     /* L10: */
@@ -406,21 +403,21 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /*     COLUMNS WHICH HAVE NOT YET BEEN CONSIDERED. */
 
   i__1 = *n;
-  for (jcol = 2; jcol <= i__1; ++jcol) {
+  for (int jcol = 2; jcol <= i__1; ++jcol) {
     iwa[jcol] = *n;
 
     /*        DETERMINE ALL POSITIONS (IR,JCOL) WHICH CORRESPOND */
     /*        TO NON-ZEROES IN THE MATRIX. */
 
     i__2 = jpntr[jcol + 1] - 1;
-    for (jp = jpntr[jcol]; jp <= i__2; ++jp) {
-      ir = indrow[jp];
+    for (int jp = jpntr[jcol]; jp <= i__2; ++jp) {
+      int ir = indrow[jp];
 
       /*           FOR EACH ROW IR, DETERMINE ALL POSITIONS (IR,IC) */
       /*           WHICH CORRESPOND TO NON-ZEROES IN THE MATRIX. */
 
-      i__3 = ipntr[ir + 1] - 1;
-      for (ip = ipntr[ir]; ip <= i__3; ++ip) {
+      int i__3 = ipntr[ir + 1] - 1;
+      for (int ip = ipntr[ir]; ip <= i__3; ++ip) {
         ic = indcol[ip];
 
         /*              ARRAY IWA MARKS COLUMNS WHICH HAVE CONTRIBUTED TO */
@@ -433,9 +430,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
           ++ndeg[jcol];
         }
       }
-      /* L30: */
     }
-    /* L40: */
   }
   return 0;
 
@@ -606,134 +601,122 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   *maxclq = 0;
   numord = 1;
 
-  /*     BEGINNING OF ITERATION LOOP. */
-
-L30:
-
-  /*        UPDATE THE SIZE OF THE LARGEST CLIQUE */
-  /*        FOUND DURING THE ORDERING. */
-
-  if (maxinc == 0) {
-    ncomp = 0;
-  }
-  ++ncomp;
-  if (maxinc + 1 == ncomp) {
-    *maxclq = max(*maxclq, ncomp);
-  }
-
-  /*        CHOOSE A COLUMN JCOL OF MAXIMAL DEGREE AMONG THE */
-  /*        COLUMNS OF MAXIMAL INCIDENCE MAXINC. */
-
   while (true) {
-    jp = iwa1[maxinc];
-    if (jp > 0) break;
-    --maxinc;
-  }
-  numwgt = -1;
-  i__1 = maxlst;
-  for (numlst = 1; numlst <= i__1; ++numlst) {
-    if (ndeg[jp] > numwgt) {
-      numwgt = ndeg[jp];
-      jcol = jp;
+
+    /*        UPDATE THE SIZE OF THE LARGEST CLIQUE */
+    /*        FOUND DURING THE ORDERING. */
+
+    if (maxinc == 0) {
+      ncomp = 0;
     }
-    jp = iwa3[jp];
-    if (jp <= 0) break;
-  }
-  list[jcol] = numord;
-  ++numord;
+    ++ncomp;
+    if (maxinc + 1 == ncomp) {
+      *maxclq = max(*maxclq, ncomp);
+    }
 
-  /*        TERMINATION TEST. */
+    /*        CHOOSE A COLUMN JCOL OF MAXIMAL DEGREE AMONG THE */
+    /*        COLUMNS OF MAXIMAL INCIDENCE MAXINC. */
 
-  if (numord > * n) {
-    goto L100;
-  }
-
-  /*        DELETE COLUMN JCOL FROM THE MAXINC LIST. */
-
-  if (iwa2[jcol] == 0) {
-    iwa1[maxinc] = iwa3[jcol];
-  }
-  else {
-    iwa3[iwa2[jcol]] = iwa3[jcol];
-  }
-  if (iwa3[jcol] > 0) {
-    iwa2[iwa3[jcol]] = iwa2[jcol];
-  }
-
-  /*        FIND ALL COLUMNS ADJACENT TO COLUMN JCOL. */
-
-  iwa4[jcol] = *n;
-
-  /*        DETERMINE ALL POSITIONS (IR,JCOL) WHICH CORRESPOND */
-  /*        TO NON-ZEROES IN THE MATRIX. */
-
-  i__1 = jpntr[jcol + 1] - 1;
-  for (jp = jpntr[jcol]; jp <= i__1; ++jp) {
-    ir = indrow[jp];
-
-    /*           FOR EACH ROW IR, DETERMINE ALL POSITIONS (IR,IC) */
-    /*           WHICH CORRESPOND TO NON-ZEROES IN THE MATRIX. */
-
-    i__2 = ipntr[ir + 1] - 1;
-    for (ip = ipntr[ir]; ip <= i__2; ++ip) {
-      ic = indcol[ip];
-
-      /*              ARRAY IWA4 MARKS COLUMNS WHICH ARE ADJACENT TO */
-      /*              COLUMN JCOL. */
-
-      if (iwa4[ic] < numord) {
-        iwa4[ic] = numord;
-
-        /*                 UPDATE THE POINTERS TO THE CURRENT INCIDENCE LISTS. */
-
-        numinc = list[ic];
-        ++list[ic];
-        /* Computing MAX */
-        i__3 = maxinc, i__4 = list[ic];
-        maxinc = max(i__3, i__4);
-
-        /*                 DELETE COLUMN IC FROM THE NUMINC LIST. */
-
-        if (iwa2[ic] == 0) {
-          iwa1[numinc] = iwa3[ic];
-        }
-        else {
-          iwa3[iwa2[ic]] = iwa3[ic];
-        }
-        if (iwa3[ic] > 0) {
-          iwa2[iwa3[ic]] = iwa2[ic];
-        }
-
-        /*                 ADD COLUMN IC TO THE NUMINC+1 LIST. */
-
-        iwa2[ic] = 0;
-        iwa3[ic] = iwa1[numinc + 1];
-        if (iwa1[numinc + 1] > 0) {
-          iwa2[iwa1[numinc + 1]] = ic;
-        }
-        iwa1[numinc + 1] = ic;
+    while (true) {
+      jp = iwa1[maxinc];
+      if (jp > 0) break;
+      --maxinc;
+    }
+    numwgt = -1;
+    i__1 = maxlst;
+    for (numlst = 1; numlst <= i__1; ++numlst) {
+      if (ndeg[jp] > numwgt) {
+        numwgt = ndeg[jp];
+        jcol = jp;
       }
-      /* L80: */
+      jp = iwa3[jp];
+      if (jp <= 0) break;
     }
-    /* L90: */
+    list[jcol] = numord;
+    ++numord;
+
+    /*        TERMINATION TEST. */
+
+    if (numord > * n) break;
+
+    /*        DELETE COLUMN JCOL FROM THE MAXINC LIST. */
+
+    if (iwa2[jcol] == 0) {
+      iwa1[maxinc] = iwa3[jcol];
+    }
+    else {
+      iwa3[iwa2[jcol]] = iwa3[jcol];
+    }
+    if (iwa3[jcol] > 0) {
+      iwa2[iwa3[jcol]] = iwa2[jcol];
+    }
+
+    /*        FIND ALL COLUMNS ADJACENT TO COLUMN JCOL. */
+
+    iwa4[jcol] = *n;
+
+    /*        DETERMINE ALL POSITIONS (IR,JCOL) WHICH CORRESPOND */
+    /*        TO NON-ZEROES IN THE MATRIX. */
+
+    i__1 = jpntr[jcol + 1] - 1;
+    for (jp = jpntr[jcol]; jp <= i__1; ++jp) {
+      ir = indrow[jp];
+
+      /*           FOR EACH ROW IR, DETERMINE ALL POSITIONS (IR,IC) */
+      /*           WHICH CORRESPOND TO NON-ZEROES IN THE MATRIX. */
+
+      i__2 = ipntr[ir + 1] - 1;
+      for (ip = ipntr[ir]; ip <= i__2; ++ip) {
+        ic = indcol[ip];
+
+        /*              ARRAY IWA4 MARKS COLUMNS WHICH ARE ADJACENT TO */
+        /*              COLUMN JCOL. */
+
+        if (iwa4[ic] < numord) {
+          iwa4[ic] = numord;
+
+          /*                 UPDATE THE POINTERS TO THE CURRENT INCIDENCE LISTS. */
+
+          numinc = list[ic];
+          ++list[ic];
+          /* Computing MAX */
+          i__3 = maxinc, i__4 = list[ic];
+          maxinc = max(i__3, i__4);
+
+          /*                 DELETE COLUMN IC FROM THE NUMINC LIST. */
+
+          if (iwa2[ic] == 0) {
+            iwa1[numinc] = iwa3[ic];
+          }
+          else {
+            iwa3[iwa2[ic]] = iwa3[ic];
+          }
+          if (iwa3[ic] > 0) {
+            iwa2[iwa3[ic]] = iwa2[ic];
+          }
+
+          /*                 ADD COLUMN IC TO THE NUMINC+1 LIST. */
+
+          iwa2[ic] = 0;
+          iwa3[ic] = iwa1[numinc + 1];
+          if (iwa1[numinc + 1] > 0) {
+            iwa2[iwa1[numinc + 1]] = ic;
+          }
+          iwa1[numinc + 1] = ic;
+        }
+      }
+    }
   }
-
-  /*        END OF ITERATION LOOP. */
-
-  goto L30;
-L100:
 
   /*     INVERT THE ARRAY LIST. */
 
   i__1 = *n;
   for (jcol = 1; jcol <= i__1; ++jcol) {
     iwa2[list[jcol]] = jcol;
-    /* L110: */
   }
   i__1 = *n;
   for (jp = 1; jp <= i__1; ++jp) {
     list[jp] = iwa2[jp];
-    /* L120: */
   }
   return 0;
 
@@ -853,16 +836,12 @@ L100:
   i__2 = jinc;
   for (j = jl; i__2 < 0 ? j >= i__1 : j <= i__1; j += i__2) {
     k = last[j];
-  L30:
-    if (k == 0) {
-      goto L40;
+    while (true) {
+      if (k == 0) break;
+      index[i__] = k;
+      ++i__;
+      k = next[k];
     }
-    index[i__] = k;
-    ++i__;
-    k = next[k];
-    goto L30;
-  L40:
-    ;
   }
   return 0;
 
@@ -1010,15 +989,11 @@ L100:
       if (iwa[jp] != j) {
         goto L50;
       }
-      /* L40: */
     }
     ++(*maxgrp);
   L50:
     ngrp[jcol] = jp;
-    /* L60: */
   }
-
-  /*        END OF ITERATION LOOP. */
 
   return 0;
 
@@ -1279,116 +1254,103 @@ L100:
   *maxclq = 0;
   numord = *n;
 
-  /*     BEGINNING OF ITERATION LOOP. */
+  while (true) {
 
-L30:
+    /*        MARK THE SIZE OF THE LARGEST CLIQUE */
+    /*        FOUND DURING THE ORDERING. */
 
-  /*        MARK THE SIZE OF THE LARGEST CLIQUE */
-  /*        FOUND DURING THE ORDERING. */
+    if (mindeg + 1 == numord && *maxclq == 0) {
+      *maxclq = numord;
+    }
 
-  if (mindeg + 1 == numord && *maxclq == 0) {
-    *maxclq = numord;
-  }
+    /*        CHOOSE A COLUMN JCOL OF MINIMAL DEGREE MINDEG. */
 
-  /*        CHOOSE A COLUMN JCOL OF MINIMAL DEGREE MINDEG. */
+    while (true) {
+      jcol = iwa1[mindeg];
+      if (jcol > 0) break;
+      ++mindeg;
+    }
 
-L40:
-  jcol = iwa1[mindeg];
-  if (jcol > 0) {
-    goto L50;
-  }
-  ++mindeg;
-  goto L40;
-L50:
-  list[jcol] = numord;
-  --numord;
+    list[jcol] = numord;
+    --numord;
 
-  /*        TERMINATION TEST. */
+    /*        TERMINATION TEST. */
 
-  if (numord == 0) {
-    goto L80;
-  }
+    if (numord == 0) break;
 
-  /*        DELETE COLUMN JCOL FROM THE MINDEG LIST. */
+    /*        DELETE COLUMN JCOL FROM THE MINDEG LIST. */
 
-  iwa1[mindeg] = iwa3[jcol];
-  if (iwa3[jcol] > 0) {
-    iwa2[iwa3[jcol]] = 0;
-  }
+    iwa1[mindeg] = iwa3[jcol];
+    if (iwa3[jcol] > 0) {
+      iwa2[iwa3[jcol]] = 0;
+    }
 
-  /*        FIND ALL COLUMNS ADJACENT TO COLUMN JCOL. */
+    /*        FIND ALL COLUMNS ADJACENT TO COLUMN JCOL. */
 
-  iwa4[jcol] = 0;
+    iwa4[jcol] = 0;
 
-  /*        DETERMINE ALL POSITIONS (IR,JCOL) WHICH CORRESPOND */
-  /*        TO NON-ZEROES IN THE MATRIX. */
+    /*        DETERMINE ALL POSITIONS (IR,JCOL) WHICH CORRESPOND */
+    /*        TO NON-ZEROES IN THE MATRIX. */
 
-  i__1 = jpntr[jcol + 1] - 1;
-  for (jp = jpntr[jcol]; jp <= i__1; ++jp) {
-    ir = indrow[jp];
+    i__1 = jpntr[jcol + 1] - 1;
+    for (jp = jpntr[jcol]; jp <= i__1; ++jp) {
+      ir = indrow[jp];
 
-    /*           FOR EACH ROW IR, DETERMINE ALL POSITIONS (IR,IC) */
-    /*           WHICH CORRESPOND TO NON-ZEROES IN THE MATRIX. */
+      /*           FOR EACH ROW IR, DETERMINE ALL POSITIONS (IR,IC) */
+      /*           WHICH CORRESPOND TO NON-ZEROES IN THE MATRIX. */
 
-    i__2 = ipntr[ir + 1] - 1;
-    for (ip = ipntr[ir]; ip <= i__2; ++ip) {
-      ic = indcol[ip];
+      i__2 = ipntr[ir + 1] - 1;
+      for (ip = ipntr[ir]; ip <= i__2; ++ip) {
+        ic = indcol[ip];
 
-      /*              ARRAY IWA4 MARKS COLUMNS WHICH ARE ADJACENT TO */
-      /*              COLUMN JCOL. */
+        /*              ARRAY IWA4 MARKS COLUMNS WHICH ARE ADJACENT TO */
+        /*              COLUMN JCOL. */
 
-      if (iwa4[ic] > numord) {
-        iwa4[ic] = numord;
+        if (iwa4[ic] > numord) {
+          iwa4[ic] = numord;
 
-        /*                 UPDATE THE POINTERS TO THE CURRENT DEGREE LISTS. */
+          /*                 UPDATE THE POINTERS TO THE CURRENT DEGREE LISTS. */
 
-        numdeg = list[ic];
-        --list[ic];
-        /* Computing MIN */
-        i__3 = mindeg, i__4 = list[ic];
-        mindeg = min(i__3, i__4);
+          numdeg = list[ic];
+          --list[ic];
+          /* Computing MIN */
+          i__3 = mindeg, i__4 = list[ic];
+          mindeg = min(i__3, i__4);
 
-        /*                 DELETE COLUMN IC FROM THE NUMDEG LIST. */
+          /*                 DELETE COLUMN IC FROM THE NUMDEG LIST. */
 
-        if (iwa2[ic] == 0) {
-          iwa1[numdeg] = iwa3[ic];
+          if (iwa2[ic] == 0) {
+            iwa1[numdeg] = iwa3[ic];
+          }
+          else {
+            iwa3[iwa2[ic]] = iwa3[ic];
+          }
+          if (iwa3[ic] > 0) {
+            iwa2[iwa3[ic]] = iwa2[ic];
+          }
+
+          /*                 ADD COLUMN IC TO THE NUMDEG-1 LIST. */
+
+          iwa2[ic] = 0;
+          iwa3[ic] = iwa1[numdeg - 1];
+          if (iwa1[numdeg - 1] > 0) {
+            iwa2[iwa1[numdeg - 1]] = ic;
+          }
+          iwa1[numdeg - 1] = ic;
         }
-        else {
-          iwa3[iwa2[ic]] = iwa3[ic];
-        }
-        if (iwa3[ic] > 0) {
-          iwa2[iwa3[ic]] = iwa2[ic];
-        }
-
-        /*                 ADD COLUMN IC TO THE NUMDEG-1 LIST. */
-
-        iwa2[ic] = 0;
-        iwa3[ic] = iwa1[numdeg - 1];
-        if (iwa1[numdeg - 1] > 0) {
-          iwa2[iwa1[numdeg - 1]] = ic;
-        }
-        iwa1[numdeg - 1] = ic;
       }
-      /* L60: */
     }
   }
-
-  /*        END OF ITERATION LOOP. */
-
-  goto L30;
-L80:
 
   /*     INVERT THE ARRAY LIST. */
 
   i__1 = *n;
   for (jcol = 1; jcol <= i__1; ++jcol) {
     iwa2[list[jcol]] = jcol;
-    /* L90: */
   }
   i__1 = *n;
   for (jp = 1; jp <= i__1; ++jp) {
     list[jp] = iwa2[jp];
-    /* L100: */
   }
   return 0;
 
@@ -1479,7 +1441,6 @@ L80:
   i__1 = *n;
   for (j = 1; j <= i__1; ++j) {
     iwa[j] = 0;
-    /* L10: */
   }
   i__1 = *nnz;
   for (k = 1; k <= i__1; ++k) {
@@ -1493,40 +1454,38 @@ L80:
   for (j = 1; j <= i__1; ++j) {
     jpntr[j + 1] = jpntr[j] + iwa[j];
     iwa[j] = jpntr[j];
-    /* L30: */
   }
   k = 1;
 
   /*     BEGIN IN-PLACE SORT. */
 
-L40:
-  j = indcol[k];
-  if (k >= jpntr[j]) {
+  while (true) {
+    j = indcol[k];
+    if (k >= jpntr[j]) {
 
-    /*           CURRENT ELEMENT IS IN POSITION. NOW EXAMINE THE */
-    /*           NEXT ELEMENT OR THE FIRST UN-SORTED ELEMENT IN */
-    /*           THE J-TH GROUP. */
+      /*           CURRENT ELEMENT IS IN POSITION. NOW EXAMINE THE */
+      /*           NEXT ELEMENT OR THE FIRST UN-SORTED ELEMENT IN */
+      /*           THE J-TH GROUP. */
 
-    /* Computing MAX */
-    i__1 = k + 1, i__2 = iwa[j];
-    k = max(i__1, i__2);
-  }
-  else {
+      /* Computing MAX */
+      i__1 = k + 1, i__2 = iwa[j];
+      k = max(i__1, i__2);
+    }
+    else {
 
-    /*           CURRENT ELEMENT IS NOT IN POSITION. PLACE ELEMENT */
-    /*           IN POSITION AND MAKE THE DISPLACED ELEMENT THE */
-    /*           CURRENT ELEMENT. */
+      /*           CURRENT ELEMENT IS NOT IN POSITION. PLACE ELEMENT */
+      /*           IN POSITION AND MAKE THE DISPLACED ELEMENT THE */
+      /*           CURRENT ELEMENT. */
 
-    l = iwa[j];
-    ++iwa[j];
-    i__ = indrow[k];
-    indrow[k] = indrow[l];
-    indcol[k] = indcol[l];
-    indrow[l] = i__;
-    indcol[l] = j;
-  }
-  if (k <= *nnz) {
-    goto L40;
+      l = iwa[j];
+      ++iwa[j];
+      i__ = indrow[k];
+      indrow[k] = indrow[l];
+      indcol[k] = indcol[l];
+      indrow[l] = i__;
+      indcol[l] = j;
+    }
+    if (k > *nnz) break;
   }
   return 0;
 
@@ -1673,7 +1632,6 @@ int fdjs_(const integer* m, const integer* n, const logical* col,
         for (jp = npntr[jcol]; jp <= i__2; ++jp) {
           irow = ind[jp];
           fjac[jp] = fjacd[irow] / d__[jcol];
-          /* L10: */
         }
       }
     }
@@ -1689,13 +1647,9 @@ int fdjs_(const integer* m, const integer* n, const logical* col,
         jcol = ind[ip];
         if (ngrp[jcol] == *numgrp) {
           fjac[ip] = fjacd[irow] / d__[jcol];
-          goto L40;
+          break;
         }
-        /* L30: */
       }
-    L40:
-      /* L50: */
-      ;
     }
   }
   return 0;
