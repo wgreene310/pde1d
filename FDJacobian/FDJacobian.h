@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2017 William H. Greene
+// Copyright (C) 2016-2019 William H. Greene
 //
 // This program is free software; you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free Software
@@ -16,11 +16,9 @@
 #ifndef _FDJacobian_H_
 #define _FDJacobian_H_
 
-#if 1
 #ifdef __cplusplus
 extern "C" {
 #endif  /* __cplusplus */
-#endif
 
   /*
   SUBROUTINE DSM(M,N,NPAIRS,INDROW,INDCOL,NGRP,MAXGRP,MINGRP,
@@ -29,7 +27,7 @@ extern "C" {
   INTEGER INDROW(NPAIRS),INDCOL(NPAIRS),NGRP(N),
   *        IPNTR(M+1),JPNTR(N+1),IWA(LIWA)
   */
-int dsm_(const int *m, const int *n, const int *npairs, 
+int dsm_(const int *m, const int *n, const int *npairs,
   int *indrow, int *indcol,
   int *ngrp, int *maxgrp, int *mingrp, int *info, int *ipntr,
   int *jpntr, int *iwa, const int *liwa);
@@ -44,11 +42,9 @@ int fdjs_(const int *m, const int *n, const int *col,
   int *ind, int *npntr, int *ngrp, int *numgrp, double *d,
   double *fjacd, double *fjac);
 
-#if 1
 #ifdef __cplusplus
 }
 
 #endif  /* __cplusplus */
-#endif
 
 #endif

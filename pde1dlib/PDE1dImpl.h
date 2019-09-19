@@ -98,6 +98,8 @@ private:
     RealMatrix &viewVec);
   void jacobianDiagnostics(double t0, SunVector &u,
      SunVector &up, SunVector &R);
+  template<class T>
+  void printSystemVector(const T& v, const char* name);
   //
   PDE1dDefn &pde;
   PDE1dOptions &options;

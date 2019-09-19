@@ -221,6 +221,11 @@ void PDEInitConditions::calcShampineAlgo(double t0,
     pdePrintf("Unable to obtain a consistent set of initial conditions.\n"
       "Maximum error in the residual is %12.3e.\n", maxRes);
   }
+
+  if (diag) {
+    double maxDiff = (u0 - yNew).cwiseAbs().maxCoeff();
+    pdePrintf("Max difference between initial and computed y0=%12.3e\n", maxDiff);
+  }
 }
 
 void PDEInitConditions::calcSundialsAlgo(double tf,

@@ -24,13 +24,11 @@ using std::endl;
 #include <Eigen/LU>
 
 #define DEBUG_MATS 0
-
 #define DAE_Y_INIT 0
-
 #define BAND_SOLVER 0
-
 #define TEST_IC_CALC 0
 
+#include <mex.h>
 
 #include <ida/ida.h>
 #include <ida/ida_direct.h> 
@@ -97,7 +95,6 @@ pde(pde), options(options)
   ida = 0;
   polyOrder = options.getPolyOrder();
   numIntPts = GausLegendreIntRule::getNumPtsForPolyOrder(2 * polyOrder);
-  //numIntPts = 1; // TESTING!!
   //cout << "numIntPts=" << numIntPts << endl;
   mesh = pde.getMesh();
   checkIncreasing(mesh, 5, "meshPts");
@@ -486,7 +483,6 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
   RealVector xiV(1);
   PDEModel::DofList eDofs(nen);
 
-
   RealVector &x = mesh;
   size_t ne = pdeModel->numElements();
   for (int e = 0; e < ne; e++) {
@@ -527,7 +523,7 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
       for (int j = 0; j < numDepVars; j++) {
         double eCjd;
         if (useDiagMassMat)
-          eCjd = cIp(j)*jacWt/ (double) nen; // lump mass
+          eCjd = cIp(j) * jacWt / (double)nen; // lump mass
         else
           eCj  = N.col(i)*cIp(j)*N.col(i).transpose()*jacWt;
         //eCMat += eCj;
@@ -552,8 +548,11 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
     }
 #if DEBUG_MATS
     cout << "eF: " << eF.transpose() << endl;
-    cout << "eCMat\n" << eCMat << endl;
-#endif
+    if (useDiagMassMat)
+      cout << "eCMatD=" << eCMatD.diagonal().transpose() << endl;
+    else
+      cout << "eCMat\n" << eCMat << endl;
+#endif    
     if (useDiagMassMat)
       eC = eCMatD*eUp;
     else
@@ -759,19 +758,22 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
   const double xl = mesh(0), xr = mesh(mesh.size() - 1);
   pde.evalBC(xl, ul, xr, ur, time, v, vDot, bc);
   const int m = pde.getCoordSystem();
+  bool sing = m > 0 && xl == 0;
   for (int i = 0; i < numDepVars; i++) {
     if (bc.ql(i) != 0) {
-      //printf("bc: i=%d, ql=%f, pl=%f\n", i, bc.ql(i), bc.pl(i));
+      //printf("left bc: i=%d, ql=%f, pl=%f\n", i, bc.ql(i), bc.pl(i));
       double qli = bc.ql(i);
-      if (m == 1)
-        qli /= xl;
-      else if(m==2)
-        qli /= (xl*xl);
+      if (!sing) {
+        if (m == 1)
+          qli /= xl;
+        else if (m == 2)
+          qli /= (xl * xl);
+      }
       R(i) -= bc.pl(i) / qli;
     }
     else {
       // apply dirichlet constraint
-      R(i) = bc.pl(i);
+      R(i) = -bc.pl(i);
       Cxd(i) = 0;
     }
     if (bc.qr(i) != 0) {
@@ -784,7 +786,7 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
     }
     else {
       // apply dirichlet constraint
-      R(i + rightDofOff) = bc.pr(i);
+      R(i + rightDofOff) = -bc.pr(i);
       Cxd(i + rightDofOff) = 0;
     }
   }
@@ -864,32 +866,40 @@ void PDE1dImpl::testMats(const RealVector &y0)
   cout << "numFEEqns=" << numFEEqns << endl;
   cout << "totalNumEqns=" << totalNumEqns << endl;
   SunVector u(totalNumEqns), up(totalNumEqns), R(totalNumEqns);
-#if 1
+#if 0
   for (int i = 0; i < totalNumEqns; i++) {
     u(i) = i;
     up(i) = i;
   }
+#elif 1
+  u = y0;
+  up = Eigen::VectorXd::LinSpaced(totalNumEqns, 0, totalNumEqns-1);
 #else
   u = y0;
-  up = u;
+  up.setOnes();
 #endif
 #if 1
-  cout << "u=" << u.transpose() << endl;
-  cout << "up=" << up.transpose() << endl;
+  printSystemVector(u, "u");
+  printSystemVector(up, "up");
   RealVector Cxd = RealVector::Zero(totalNumEqns);
   RealVector F = RealVector::Zero(totalNumEqns);
   RealVector S = RealVector::Zero(totalNumEqns);
+  // copy the ode dofs to their own vectors
+  if (numODE) {
+    v = u.bottomRows(numODE);
+    vDot = up.bottomRows(numODE);
+  }
   calcGlobalEqns(0, u, up, Cxd, F, S);
-  cout << "Cxd=" << Cxd.transpose() << endl;
-  cout << "F=" << F.transpose() << endl;
-  cout << "S=" << S.transpose() << endl;
+  printSystemVector(Cxd, "Cxd");
+  printSystemVector(F, "F");
+  printSystemVector(S, "S");
 #if 1
   R.setZero();
   calcRHSODE(0, u, up, R);
 #else
   R = S - F;
 #endif
-  cout << "R\n" << R.transpose() << endl;
+  printSystemVector(R, "R");
 #endif
   if (diag > 1) {
     SparseMat jac(totalNumEqns, totalNumEqns);
@@ -900,6 +910,10 @@ void PDE1dImpl::testMats(const RealVector &y0)
     SparseMat jac(totalNumEqns, totalNumEqns);
     calcJacobian(0, 0, 1, u, up, R, jac);
     cout << "mass matrix\n" << jac.toDense() << endl;
+    if (options.getDiagMassMat()) {
+      Eigen::VectorXd mDiag = jac.diagonal();
+      printSystemVector(mDiag, "M-diagonal");
+    }
   }
   throw PDE1dException("pde1d:testResidual", "test complete.");
 }
@@ -1205,7 +1219,6 @@ void PDE1dImpl::calcJacPattern(Eigen::SparseMatrix<double> &J)
     maxNN = std::max(maxNN, nen);
     nnz += nen*nen*n2;
   }
-  PDEModel::DofList dofs(maxNN);
   typedef Eigen::Triplet<int, int> T;
   std::vector<T> tripList;
   tripList.reserve(nnz);
@@ -1441,4 +1454,16 @@ void PDE1dImpl::interpolateGlobalVecToViewMesh(const T &gVec,
   }
   // finish the last view node
   uViewNodes.col(iViewNode) = u2e.col(1);
+}
+
+template<class T>
+void PDE1dImpl::printSystemVector(const T& v, const char* name) {
+  cout << name << '\n';
+  if (!numODE) {
+    auto np = numFEEqns / numDepVars;
+    Eigen::Map<const Eigen::MatrixXd> mv(v.data(), numDepVars, np);
+    cout << mv << '\n';
+  }
+  else
+    cout << v.transpose() << '\n';
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 2016-2017 William H. Greene
+// Copyright (C) 2016-2019 William H. Greene
 //
 // This program is free software; you can redistribute it and/or modify it under
 // the terms of the GNU General Public License as published by the Free Software
@@ -61,10 +61,10 @@ void FiniteDiffJacobian::calcJacobian(double tres, double alpha,
   jac.resize(neq, neq);
   jac.reserve(nnz);
   if (useCD)
-    calcJacobianCD(tres, alpha, beta, uu, up, r, rf, userData, 
+    calcJacobianCD(tres, alpha, beta, uu, up, r, rf, userData,
       jac.valuePtr(), jac.outerIndexPtr(), jac.innerIndexPtr());
   else
-    calcJacobian(tres, alpha, beta, uu, up, r, rf, userData, 
+    calcJacobian(tres, alpha, beta, uu, up, r, rf, userData,
       jac.valuePtr(), jac.outerIndexPtr(), jac.innerIndexPtr());
   jac.resizeNonZeros(nnz);
 }
