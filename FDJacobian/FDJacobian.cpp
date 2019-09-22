@@ -37,7 +37,7 @@ using std::min;
 
 /* Table of constant values */
 
-static integer c_n1 = -1;
+integer c_n1 = -1;
 
 int dsm_(const integer* m, const integer* n, const integer* npairs,
   integer* indrow, integer* indcol, integer* ngrp, integer* maxgrp, integer*
@@ -47,24 +47,22 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /* System generated locals */
   integer i__1, i__2;
 
-  /* Local variables */
-  static integer i__, j, k, jp, ir;
-  extern  int ido_(const integer*, const integer*, integer*, integer
+  int ido_(const integer*, const integer*, integer*, integer
     *, integer*, integer*, integer*, integer*, integer*, integer
     *, integer*, integer*, integer*), seq_(const integer*, integer*,
       integer*, integer*, integer*, integer*, integer*, integer*,
       integer*), slo_(const integer*, integer*, integer*, integer*,
         integer*, integer*, integer*, integer*, integer*, integer*,
         integer*, integer*);
-  static integer nnz;
-  extern  int degr_(const integer*, integer*, integer*,
+  integer nnz;
+  int degr_(const integer*, integer*, integer*,
     integer*, integer*, integer*, integer*), setr_(const integer*,
       const integer*, integer*, integer*, integer*, integer*, integer*);
-  static integer maxclq;
-  extern  int srtdat_(const integer*, const integer*, integer*,
+  integer maxclq;
+  int srtdat_(const integer*, const integer*, integer*,
     integer*, integer*, integer*);
-  static integer numgrp;
-  extern  int numsrt_(const integer*, integer*, integer*,
+  integer numgrp;
+  int numsrt_(const integer*, integer*, integer*,
     integer*, integer*, integer*, integer*);
 
   /*     ********** */
@@ -212,10 +210,10 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   nnz = 1;
   i__1 = *n;
   for (int j = 1; j <= i__1; ++j) {
-    k = nnz;
+    int k = nnz;
     i__2 = jpntr[j + 1] - 1;
     for (int jp = jpntr[j]; jp <= i__2; ++jp) {
-      ir = indrow[jp];
+      int ir = indrow[jp];
       if (iwa[ir] != j) {
         indrow[nnz] = ir;
         ++nnz;
@@ -316,8 +314,6 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /* System generated locals */
   integer i__1, i__2;
 
-  /* Local variables */
-  static integer ic, ip, jp, ir, jcol;
 
   /*     ********** */
 
@@ -418,7 +414,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
 
       int i__3 = ipntr[ir + 1] - 1;
       for (int ip = ipntr[ir]; ip <= i__3; ++ip) {
-        ic = indcol[ip];
+        int ic = indcol[ip];
 
         /*              ARRAY IWA MARKS COLUMNS WHICH HAVE CONTRIBUTED TO */
         /*              THE DEGREE COUNT OF COLUMN JCOL. UPDATE THE DEGREE */
@@ -445,9 +441,9 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   integer i__1, i__2, i__3, i__4;
 
   /* Local variables */
-  static integer ic, ip, jp, ir, jcol, ncomp, maxinc, numinc, numord,
+  integer ic, ip, jp, ir, jcol=0, ncomp, maxinc, numinc, numord,
     maxlst, numwgt, numlst;
-  extern  int numsrt_(const integer*, integer*, integer*,
+  int numsrt_(const integer*, integer*, integer*,
     integer*, integer*, integer*, integer*);
 
   /*     ********** */
@@ -584,7 +580,6 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
     iwa1[0] = ic;
     iwa4[jp] = 0;
     list[jp] = 0;
-    /* L10: */
   }
 
   /*     DETERMINE THE MAXIMAL SEARCH LENGTH FOR THE LIST */
@@ -624,6 +619,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
     }
     numwgt = -1;
     i__1 = maxlst;
+    int jcol = 0;
     for (numlst = 1; numlst <= i__1; ++numlst) {
       if (ndeg[jp] > numwgt) {
         numwgt = ndeg[jp];
@@ -729,7 +725,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   integer i__1, i__2;
 
   /* Local variables */
-  static integer i__, j, k, l, jl, ju, jinc;
+  integer i__, j, k, l, jl, ju, jinc;
 
   /*     **********. */
 
@@ -855,7 +851,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   integer i__1, i__2, i__3;
 
   /* Local variables */
-  static integer j, ic, ip, jp, ir, jcol;
+  integer j, ic, ip, jp, ir, jcol;
 
   /*     ********** */
 
@@ -1006,7 +1002,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   integer i__1, i__2;
 
   /* Local variables */
-  static integer jp, ir, jcol;
+  integer jp, ir, jcol;
 
   /*     ********** */
 
@@ -1115,7 +1111,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   integer i__1, i__2, i__3, i__4;
 
   /* Local variables */
-  static integer ic, ip, jp, ir, jcol, mindeg, numdeg, numord;
+  integer ic, ip, jp, ir, jcol, mindeg, numdeg, numord;
 
   /*     ********** */
 
@@ -1363,7 +1359,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   integer i__1, i__2;
 
   /* Local variables */
-  static integer i__, j, k, l;
+  integer i__, j, k, l;
 
   /*     ********** */
 
@@ -1501,7 +1497,7 @@ int fdjs_(const integer* m, const integer* n, const logical* col,
   integer i__1, i__2;
 
   /* Local variables */
-  static integer ip, jp, jcol, irow;
+  integer ip, jp, jcol, irow;
 
   /*     ********** */
 
