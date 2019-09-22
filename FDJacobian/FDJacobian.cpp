@@ -34,18 +34,16 @@ using std::min;
 
 #include "FDJacobian.h"
 
+const integer c_n1 = -1;
 
-/* Table of constant values */
-
-integer c_n1 = -1;
+int numsrt_(const integer*, integer*, integer*,
+  const integer*, integer*, integer*, integer*);
 
 int dsm_(const integer* m, const integer* n, const integer* npairs,
   integer* indrow, integer* indcol, integer* ngrp, integer* maxgrp, integer*
   mingrp, integer* info, integer* ipntr, integer* jpntr, integer* iwa,
   const integer* liwa)
 {
-  /* System generated locals */
-  integer i__1, i__2;
 
   int ido_(const integer*, const integer*, integer*, integer
     *, integer*, integer*, integer*, integer*, integer*, integer
@@ -62,10 +60,6 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   int srtdat_(const integer*, const integer*, integer*,
     integer*, integer*, integer*);
   integer numgrp;
-  int numsrt_(const integer*, integer*, integer*,
-    integer*, integer*, integer*, integer*);
-
-  /*     ********** */
 
   /*     SUBROUTINE DSM */
 
@@ -168,8 +162,6 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /*     ARGONNE NATIONAL LABORATORY. MINPACK PROJECT. JULY 1983. */
   /*     THOMAS F. COLEMAN, BURTON S. GARBOW, JORGE J. MORE' */
 
-  /*     ********** */
-
   /*     CHECK THE INPUT DATA. */
 
       /* Parameter adjustments */
@@ -182,7 +174,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
 
   *info = 0;
   /* Computing MAX */
-  i__1 = *m, i__2 = *n * 6;
+  int i__1 = *m, i__2 = *n * 6;
   if (*m < 1 || *n < 1 || *npairs < 1 || *liwa < max(i__1, i__2)) {
     return 0;
   }
@@ -311,11 +303,6 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
  int degr_(const integer* n, integer* indrow, integer* jpntr,
   integer* indcol, integer* ipntr, integer* ndeg, integer* iwa)
 {
-  /* System generated locals */
-  integer i__1, i__2;
-
-
-  /*     ********** */
 
   /*     SUBROUTINE DEGR */
 
@@ -374,10 +361,6 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /*     ARGONNE NATIONAL LABORATORY. MINPACK PROJECT. JULY 1983. */
   /*     THOMAS F. COLEMAN, BURTON S. GARBOW, JORGE J. MORE' */
 
-  /*     ********** */
-
-  /*     INITIALIZATION BLOCK. */
-
       /* Parameter adjustments */
   --iwa;
   --ndeg;
@@ -386,12 +369,10 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   --indcol;
   --ipntr;
 
-  /* Function Body */
-  i__1 = *n;
+  int i__1 = *n;
   for (int jp = 1; jp <= i__1; ++jp) {
     ndeg[jp] = 0;
     iwa[jp] = 0;
-    /* L10: */
   }
 
   /*     COMPUTE THE DEGREE SEQUENCE BY DETERMINING THE CONTRIBUTIONS */
@@ -405,7 +386,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
     /*        DETERMINE ALL POSITIONS (IR,JCOL) WHICH CORRESPOND */
     /*        TO NON-ZEROES IN THE MATRIX. */
 
-    i__2 = jpntr[jcol + 1] - 1;
+    int i__2 = jpntr[jcol + 1] - 1;
     for (int jp = jpntr[jcol]; jp <= i__2; ++jp) {
       int ir = indrow[jp];
 
@@ -437,16 +418,10 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   integer* maxclq, integer* iwa1, integer* iwa2, integer* iwa3, integer
   * iwa4)
 {
-  /* System generated locals */
-  integer i__1, i__2, i__3, i__4;
 
   /* Local variables */
   integer ic, ip, jp, ir, jcol=0, ncomp, maxinc, numinc, numord,
     maxlst, numwgt, numlst;
-  int numsrt_(const integer*, integer*, integer*,
-    integer*, integer*, integer*, integer*);
-
-  /*     ********** */
 
   /*     SUBROUTINE IDO */
 
@@ -524,7 +499,6 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /*     ARGONNE NATIONAL LABORATORY. MINPACK PROJECT. JULY 1983. */
   /*     THOMAS F. COLEMAN, BURTON S. GARBOW, JORGE J. MORE' */
 
-  /*     ********** */
 
   /*     SORT THE DEGREE SEQUENCE. */
 
@@ -539,11 +513,9 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   --indrow;
   --indcol;
 
-  /* Function Body */
-  i__1 = *n - 1;
+  int i__1 = *n - 1;
   numsrt_(n, &i__1, &ndeg[1], &c_n1, &iwa4[1], &iwa2[1], &iwa3[1]);
 
-  /*     INITIALIZATION BLOCK. */
 
   /*     CREATE A DOUBLY-LINKED LIST TO ACCESS THE INCIDENCES OF THE */
   /*     COLUMNS. THE POINTERS FOR THE LINKED LIST ARE AS FOLLOWS. */
@@ -589,7 +561,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   i__1 = *m;
   for (ir = 1; ir <= i__1; ++ir) {
     /* Computing 2nd power */
-    i__2 = ipntr[ir + 1] - ipntr[ir];
+    int i__2 = ipntr[ir + 1] - ipntr[ir];
     maxlst += i__2 * i__2;
   }
   maxlst /= *n;
@@ -661,7 +633,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
       /*           FOR EACH ROW IR, DETERMINE ALL POSITIONS (IR,IC) */
       /*           WHICH CORRESPOND TO NON-ZEROES IN THE MATRIX. */
 
-      i__2 = ipntr[ir + 1] - 1;
+      int i__2 = ipntr[ir + 1] - 1;
       for (ip = ipntr[ir]; ip <= i__2; ++ip) {
         ic = indcol[ip];
 
@@ -676,7 +648,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
           numinc = list[ic];
           ++list[ic];
           /* Computing MAX */
-          i__3 = maxinc, i__4 = list[ic];
+          int i__3 = maxinc, i__4 = list[ic];
           maxinc = max(i__3, i__4);
 
           /*                 DELETE COLUMN IC FROM THE NUMINC LIST. */
@@ -718,16 +690,13 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
 
 } /* ido_ */
 
- int numsrt_(const integer* n, integer* nmax, integer* num, integer
+ int numsrt_(const integer* n, integer* nmax, integer* num, const integer
   * mode, integer* index, integer* last, integer* next)
 {
-  /* System generated locals */
-  integer i__1, i__2;
 
   /* Local variables */
-  integer i__, j, k, l, jl, ju, jinc;
+  integer j, k, l, jl, ju, jinc;
 
-  /*     **********. */
 
   /*     SUBROUTINE NUMSRT */
 
@@ -790,8 +759,6 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /*     ARGONNE NATIONAL LABORATORY. MINPACK PROJECT. JULY 1983. */
   /*     THOMAS F. COLEMAN, BURTON S. GARBOW, JORGE J. MORE' */
 
-  /*     ********** */
-
   /*     DETERMINE THE ARRAYS NEXT AND LAST. */
 
       /* Parameter adjustments */
@@ -799,11 +766,9 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   --index;
   --num;
 
-  /* Function Body */
-  i__1 = *nmax;
-  for (i__ = 0; i__ <= i__1; ++i__) {
+  int i__1 = *nmax;
+  for (int i__ = 0; i__ <= i__1; ++i__) {
     last[i__] = 0;
-    /* L10: */
   }
   i__1 = *n;
   for (k = 1; k <= i__1; ++k) {
@@ -817,7 +782,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
 
   /*     STORE THE POINTERS TO THE SORTED ARRAY IN INDEX. */
 
-  i__ = 1;
+  int i__ = 1;
   if (*mode > 0) {
     jl = 0;
     ju = *nmax;
@@ -829,7 +794,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
     jinc = -1;
   }
   i__1 = ju;
-  i__2 = jinc;
+  int i__2 = jinc;
   for (j = jl; i__2 < 0 ? j >= i__1 : j <= i__1; j += i__2) {
     k = last[j];
     while (true) {
@@ -847,13 +812,9 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   integer* indcol, integer* ipntr, integer* list, integer* ngrp,
   integer* maxgrp, integer* iwa)
 {
-  /* System generated locals */
-  integer i__1, i__2, i__3;
 
   /* Local variables */
   integer j, ic, ip, jp, ir, jcol;
-
-  /*     ********** */
 
   /*     SUBROUTINE SEQ */
 
@@ -928,10 +889,6 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /*     ARGONNE NATIONAL LABORATORY. MINPACK PROJECT. JULY 1983. */
   /*     THOMAS F. COLEMAN, BURTON S. GARBOW, JORGE J. MORE' */
 
-  /*     ********** */
-
-  /*     INITIALIZATION BLOCK. */
-
       /* Parameter adjustments */
   --iwa;
   --ngrp;
@@ -941,9 +898,8 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   --indcol;
   --ipntr;
 
-  /* Function Body */
   *maxgrp = 0;
-  i__1 = *n;
+  int i__1 = *n;
   for (jp = 1; jp <= i__1; ++jp) {
     ngrp[jp] = *n;
     iwa[jp] = 0;
@@ -960,14 +916,14 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
     /*        DETERMINE ALL POSITIONS (IR,JCOL) WHICH CORRESPOND */
     /*        TO NON-ZEROES IN THE MATRIX. */
 
-    i__2 = jpntr[jcol + 1] - 1;
+    int i__2 = jpntr[jcol + 1] - 1;
     for (jp = jpntr[jcol]; jp <= i__2; ++jp) {
       ir = indrow[jp];
 
       /*           FOR EACH ROW IR, DETERMINE ALL POSITIONS (IR,IC) */
       /*           WHICH CORRESPOND TO NON-ZEROES IN THE MATRIX. */
 
-      i__3 = ipntr[ir + 1] - 1;
+      int i__3 = ipntr[ir + 1] - 1;
       for (ip = ipntr[ir]; ip <= i__3; ++ip) {
         ic = indcol[ip];
 
@@ -998,13 +954,9 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
  int setr_(const integer* m, const integer* n, integer* indrow, integer*
   jpntr, integer* indcol, integer* ipntr, integer* iwa)
 {
-  /* System generated locals */
-  integer i__1, i__2;
 
   /* Local variables */
   integer jp, ir, jcol;
-
-  /*     ********** */
 
   /*     SUBROUTINE SETR */
 
@@ -1057,8 +1009,6 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /*     ARGONNE NATIONAL LABORATORY. MINPACK PROJECT. JULY 1983. */
   /*     THOMAS F. COLEMAN, BURTON S. GARBOW, JORGE J. MORE' */
 
-  /*     ********** */
-
   /*     STORE IN ARRAY IWA THE COUNTS OF NON-ZEROES IN THE ROWS. */
 
       /* Parameter adjustments */
@@ -1068,8 +1018,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   --indrow;
   --indcol;
 
-  /* Function Body */
-  i__1 = *m;
+  int i__1 = *m;
   for (ir = 1; ir <= i__1; ++ir) {
     iwa[ir] = 0;
   }
@@ -1091,7 +1040,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
 
   i__1 = *n;
   for (jcol = 1; jcol <= i__1; ++jcol) {
-    i__2 = jpntr[jcol + 1] - 1;
+    int i__2 = jpntr[jcol + 1] - 1;
     for (jp = jpntr[jcol]; jp <= i__2; ++jp) {
       ir = indrow[jp];
       indcol[iwa[ir]] = jcol;
@@ -1107,13 +1056,10 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   integer* maxclq, integer* iwa1, integer* iwa2, integer* iwa3, integer
   * iwa4)
 {
-  /* System generated locals */
-  integer i__1, i__2, i__3, i__4;
 
   /* Local variables */
-  integer ic, ip, jp, ir, jcol, mindeg, numdeg, numord;
+  //integer ic, ir, jcol;
 
-  /*     ********** */
 
   /*     SUBROUTINE SLO */
 
@@ -1187,10 +1133,6 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /*     ARGONNE NATIONAL LABORATORY. MINPACK PROJECT. JULY 1983. */
   /*     THOMAS F. COLEMAN, BURTON S. GARBOW, JORGE J. MORE' */
 
-  /*     ********** */
-
-  /*     INITIALIZATION BLOCK. */
-
       /* Parameter adjustments */
   --iwa4;
   --iwa3;
@@ -1202,15 +1144,14 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   --indcol;
   --ipntr;
 
-  /* Function Body */
-  mindeg = *n;
-  i__1 = *n;
-  for (jp = 1; jp <= i__1; ++jp) {
+  int mindeg = *n;
+  int i__1 = *n;
+  for (int jp = 1; jp <= i__1; ++jp) {
     iwa1[jp - 1] = 0;
     iwa4[jp] = *n;
     list[jp] = ndeg[jp];
     /* Computing MIN */
-    i__2 = mindeg, i__3 = ndeg[jp];
+    int i__2 = mindeg, i__3 = ndeg[jp];
     mindeg = min(i__2, i__3);
   }
 
@@ -1238,8 +1179,8 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /*     IS THE SMALLEST-LAST ORDER OF COLUMN JCOL. */
 
   i__1 = *n;
-  for (jp = 1; jp <= i__1; ++jp) {
-    numdeg = ndeg[jp];
+  for (int jp = 1; jp <= i__1; ++jp) {
+    int numdeg = ndeg[jp];
     iwa2[jp] = 0;
     iwa3[jp] = iwa1[numdeg];
     if (iwa1[numdeg] > 0) {
@@ -1248,7 +1189,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
     iwa1[numdeg] = jp;
   }
   *maxclq = 0;
-  numord = *n;
+  int numord = *n;
 
   while (true) {
 
@@ -1261,6 +1202,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
 
     /*        CHOOSE A COLUMN JCOL OF MINIMAL DEGREE MINDEG. */
 
+    int jcol = 0;
     while (true) {
       jcol = iwa1[mindeg];
       if (jcol > 0) break;
@@ -1289,15 +1231,15 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
     /*        TO NON-ZEROES IN THE MATRIX. */
 
     i__1 = jpntr[jcol + 1] - 1;
-    for (jp = jpntr[jcol]; jp <= i__1; ++jp) {
-      ir = indrow[jp];
+    for (int jp = jpntr[jcol]; jp <= i__1; ++jp) {
+      int ir = indrow[jp];
 
       /*           FOR EACH ROW IR, DETERMINE ALL POSITIONS (IR,IC) */
       /*           WHICH CORRESPOND TO NON-ZEROES IN THE MATRIX. */
 
-      i__2 = ipntr[ir + 1] - 1;
-      for (ip = ipntr[ir]; ip <= i__2; ++ip) {
-        ic = indcol[ip];
+      int i__2 = ipntr[ir + 1] - 1;
+      for (int ip = ipntr[ir]; ip <= i__2; ++ip) {
+        int ic = indcol[ip];
 
         /*              ARRAY IWA4 MARKS COLUMNS WHICH ARE ADJACENT TO */
         /*              COLUMN JCOL. */
@@ -1307,10 +1249,10 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
 
           /*                 UPDATE THE POINTERS TO THE CURRENT DEGREE LISTS. */
 
-          numdeg = list[ic];
+          int numdeg = list[ic];
           --list[ic];
           /* Computing MIN */
-          i__3 = mindeg, i__4 = list[ic];
+          int i__3 = mindeg, i__4 = list[ic];
           mindeg = min(i__3, i__4);
 
           /*                 DELETE COLUMN IC FROM THE NUMDEG LIST. */
@@ -1341,11 +1283,11 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /*     INVERT THE ARRAY LIST. */
 
   i__1 = *n;
-  for (jcol = 1; jcol <= i__1; ++jcol) {
+  for (int jcol = 1; jcol <= i__1; ++jcol) {
     iwa2[list[jcol]] = jcol;
   }
   i__1 = *n;
-  for (jp = 1; jp <= i__1; ++jp) {
+  for (int jp = 1; jp <= i__1; ++jp) {
     list[jp] = iwa2[jp];
   }
   return 0;
@@ -1355,13 +1297,6 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
  int srtdat_(const integer* n, const integer* nnz, integer* indrow,
   integer* indcol, integer* jpntr, integer* iwa)
 {
-  /* System generated locals */
-  integer i__1, i__2;
-
-  /* Local variables */
-  integer i__, j, k, l;
-
-  /*     ********** */
 
   /*     SUBROUTINE SRTDAT */
 
@@ -1423,8 +1358,6 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   /*     ARGONNE NATIONAL LABORATORY. MINPACK PROJECT. JULY 1983. */
   /*     THOMAS F. COLEMAN, BURTON S. GARBOW, JORGE J. MORE' */
 
-  /*     ********** */
-
   /*     STORE IN ARRAY IWA THE COUNTS OF NON-ZEROES IN THE COLUMNS. */
 
       /* Parameter adjustments */
@@ -1433,13 +1366,12 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
   --indcol;
   --indrow;
 
-  /* Function Body */
-  i__1 = *n;
-  for (j = 1; j <= i__1; ++j) {
+  int i__1 = *n;
+  for (int j = 1; j <= i__1; ++j) {
     iwa[j] = 0;
   }
   i__1 = *nnz;
-  for (k = 1; k <= i__1; ++k) {
+  for (int k = 1; k <= i__1; ++k) {
     ++iwa[indcol[k]];
   }
 
@@ -1447,16 +1379,16 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
 
   jpntr[1] = 1;
   i__1 = *n;
-  for (j = 1; j <= i__1; ++j) {
+  for (int j = 1; j <= i__1; ++j) {
     jpntr[j + 1] = jpntr[j] + iwa[j];
     iwa[j] = jpntr[j];
   }
-  k = 1;
 
   /*     BEGIN IN-PLACE SORT. */
 
+  int k = 1;
   while (true) {
-    j = indcol[k];
+    int j = indcol[k];
     if (k >= jpntr[j]) {
 
       /*           CURRENT ELEMENT IS IN POSITION. NOW EXAMINE THE */
@@ -1464,7 +1396,7 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
       /*           THE J-TH GROUP. */
 
       /* Computing MAX */
-      i__1 = k + 1, i__2 = iwa[j];
+      int i__1 = k + 1, i__2 = iwa[j];
       k = max(i__1, i__2);
     }
     else {
@@ -1473,9 +1405,9 @@ int dsm_(const integer* m, const integer* n, const integer* npairs,
       /*           IN POSITION AND MAKE THE DISPLACED ELEMENT THE */
       /*           CURRENT ELEMENT. */
 
-      l = iwa[j];
+      int l = iwa[j];
       ++iwa[j];
-      i__ = indrow[k];
+      int i__ = indrow[k];
       indrow[k] = indrow[l];
       indcol[k] = indcol[l];
       indrow[l] = i__;
@@ -1493,13 +1425,6 @@ int fdjs_(const integer* m, const integer* n, const logical* col,
   integer* npntr, integer* ngrp, integer* numgrp, real* d__, real*
   fjacd, real* fjac)
 {
-  /* System generated locals */
-  integer i__1, i__2;
-
-  /* Local variables */
-  integer ip, jp, jcol, irow;
-
-  /*     ********** */
 
   /*     SUBROUTINE FDJS */
 
@@ -1600,8 +1525,6 @@ int fdjs_(const integer* m, const integer* n, const logical* col,
   /*     ARGONNE NATIONAL LABORATORY. MINPACK PROJECT. JULY 1983. */
   /*     THOMAS F. COLEMAN, BURTON S. GARBOW, JORGE J. MORE' */
 
-  /*     ********** */
-
   /*     COMPUTE ESTIMATES OF JACOBIAN MATRIX COLUMNS IN GROUP */
   /*     NUMGRP. THE ARRAY FJACD MUST CONTAIN AN APPROXIMATION */
   /*     TO JAC*D, WHERE JAC DENOTES THE JACOBIAN MATRIX AND D */
@@ -1616,17 +1539,16 @@ int fdjs_(const integer* m, const integer* n, const logical* col,
   --npntr;
   --fjac;
 
-  /* Function Body */
   if (*col) {
 
     /*        COLUMN ORIENTATION. */
 
-    i__1 = *n;
-    for (jcol = 1; jcol <= i__1; ++jcol) {
+    int i__1 = *n;
+    for (int jcol = 1; jcol <= i__1; ++jcol) {
       if (ngrp[jcol] == *numgrp) {
-        i__2 = npntr[jcol + 1] - 1;
-        for (jp = npntr[jcol]; jp <= i__2; ++jp) {
-          irow = ind[jp];
+        int i__2 = npntr[jcol + 1] - 1;
+        for (int jp = npntr[jcol]; jp <= i__2; ++jp) {
+          int irow = ind[jp];
           fjac[jp] = fjacd[irow] / d__[jcol];
         }
       }
@@ -1636,11 +1558,11 @@ int fdjs_(const integer* m, const integer* n, const logical* col,
 
     /*        ROW ORIENTATION. */
 
-    i__1 = *m;
-    for (irow = 1; irow <= i__1; ++irow) {
-      i__2 = npntr[irow + 1] - 1;
-      for (ip = npntr[irow]; ip <= i__2; ++ip) {
-        jcol = ind[ip];
+    int i__1 = *m;
+    for (int irow = 1; irow <= i__1; ++irow) {
+      int i__2 = npntr[irow + 1] - 1;
+      for (int ip = npntr[irow]; ip <= i__2; ++ip) {
+        int jcol = ind[ip];
         if (ngrp[jcol] == *numgrp) {
           fjac[ip] = fjacd[irow] / d__[jcol];
           break;
