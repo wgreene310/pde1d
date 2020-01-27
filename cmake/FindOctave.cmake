@@ -107,6 +107,7 @@ if(Development IN_LIST Octave_FIND_COMPONENTS)
 
 					 
 		if(WIN32)
+		  SET(CMAKE_FIND_LIBRARY_SUFFIXES_tmp ${CMAKE_FIND_LIBRARY_SUFFIXES})
 			SET(CMAKE_FIND_LIBRARY_SUFFIXES "" ".lib" ".a" ".dll.a")
 		endif()
 
@@ -126,7 +127,7 @@ if(Development IN_LIST Octave_FIND_COMPONENTS)
 			#message("Octave_OCTAVE_LIBRARY=" ${Octave_OCTAVE_LIBRARY})
 							 
 		if(WIN32)
-		  unset(CMAKE_FIND_LIBRARY_SUFFIXES)
+		  set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES_tmp})
     endif()
 
     list(APPEND Octave_REQUIRED_VARS ${Octave_OCTAVE_LIBRARY} ${Octave_INTERP_LIBRARY})
