@@ -266,7 +266,6 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
     y0.bottomRows(numODE) = v;
   }
   // flag dirichlet constraints
-  const size_t nm1 = nnfe - 1;
   RealVector ul = y0FE.col(0), ur = y0FE.col(nnfe - 1);
   pde.evalBC(mesh(0), ul, mesh(mesh.size()-1), ur, tspan(0), v, vDot, bc);
   for (int i = 0; i < numDepVars; i++) {
@@ -287,7 +286,6 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
   /* Create vectors uu, up, res, constraints, id. */
   SunVector uu(neqImpl), up(neqImpl), res(neqImpl), id(neqImpl);
   double *udata = &uu[0];
-  double *updata = &up[0];
   MapVec u(udata, neqImpl);
   std::copy_n(y0.data(), totalNumEqns, udata);
   up.setConstant(0);
@@ -315,7 +313,7 @@ int PDE1dImpl::solveTransient(PDESolution &sol)
     ier = IDASetSuppressAlg(ida, true);
     check_flag(&ier, "IDASetSuppressAlg", 1);
   }
-  double t0 = tspan(0), tf = tspan(numTimes-1);
+  double t0 = tspan(0);
   PDEInitConditions initCond(ida, *this, uu, up);
   PDEInitConditions::ICPair icPair = initCond.init();
   ier = IDAInit(ida, resFunc, t0, icPair.first->getNV(),
@@ -471,43 +469,39 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
   pdeCoeffs.f.resize(numDepVars, 1);
   pdeCoeffs.s.resize(numDepVars, 1);
 
-  RealMatrix eCMat = RealMatrix::Zero(numElemEqns, numElemEqns);
-  Eigen::DiagonalMatrix<double, Eigen::Dynamic> eCMatD(numElemEqns);
   RealVector eF = RealVector::Zero(numElemEqns);
+  MapMat eFX(eF.data(), numDepVars, nen);
   RealVector eS = RealVector::Zero(numElemEqns);
+  MapMat eSX(eS.data(), numDepVars, nen);
   RealVector eC = RealVector::Zero(numElemEqns);
+  MapMat eCX(eC.data(), numDepVars, nen);
   RealMatrix up2e(numDepVars, nen);
   Eigen::Map<RealVector> eUp(up2e.data(), numElemEqns);
-  RealMatrix eCj(nen, nen);
-  RealVector eFj(nen), eSj(nen);
-  RealVector xiV(1);
   PDEModel::DofList eDofs(nen);
+  RealMatrix oNen = RealMatrix::Ones(1,nen);
+  RealVector dNdx(nen), ui(numDepVars), upi(numDepVars), dUiDx(numDepVars);
 
   RealVector &x = mesh;
   size_t ne = pdeModel->numElements();
   for (int e = 0; e < ne; e++) {
-    const PDEElement &elem = pdeModel->element(e);
     pdeModel->getDofIndicesForElem(e, eDofs);
     PDEModel::globalToElemVec(eDofs, u2, u2e);
     PDEModel::globalToElemVec(eDofs, up2, up2e);
-    if (useDiagMassMat)
-      eCMatD.setZero();
-    else
-      eCMat.setZero();
+    eC.setZero();
     eF.setZero();
     eS.setZero();
     double L = x(e + 1) - x(e);
-    //fprintf('elem=%d\n', e);
     double jac = L / 2;
     for (int i = 0; i < numIntPts; i++) {
       // assume two node elements
       double jacWt = jac*intWts(i);
       double xi = x(e)*N(0, i) + x(e + 1)*N(1, i);
-      auto dNdx = dN.col(i) / jac;
-      auto ui = u2e*N.col(i);
-      auto dUiDx = u2e*dNdx;
+      dNdx = dN.col(i) / jac;
+      ui = u2e*N.col(i);
+      upi = up2e*N.col(i);
+      dUiDx = u2e*dNdx;
       pde.evalPDE(xi, t, ui, dUiDx, v, vDot, pdeCoeffs);
-      Eigen::Ref<Eigen::VectorXd> cIp = pdeCoeffs.c.col(0);
+      bool isFullCMat = numDepVars>1 && pdeCoeffs.c.rows() == pdeCoeffs.c.cols();
       Eigen::Ref<Eigen::VectorXd> sIp = pdeCoeffs.s.col(0);
       Eigen::Ref<Eigen::VectorXd> fIp = pdeCoeffs.f.col(0);
       checkCoeffs(pdeCoeffs);
@@ -516,53 +510,44 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
         xm = xi;
       else if(m == 2)
         xm = xi*xi;
-      cIp *= xm;
+
+      pdeCoeffs.c *= xm;
       sIp *= xm;
       fIp *= xm;
  
-      for (int j = 0; j < numDepVars; j++) {
-        double eCjd;
-        if (useDiagMassMat)
-          eCjd = cIp(j) * jacWt / (double)nen; // lump mass
-        else
-          eCj  = N.col(i)*cIp(j)*N.col(i).transpose()*jacWt;
-        //eCMat += eCj;
-        eFj = dNdx*fIp(j)*jacWt;
-        //eF += eFj;
-        eSj = N.col(i)*sIp(j)*jacWt;
-        //eS += eSj;
-        for (int k = 0; k < nen; k++) {
-          size_t kk = j + k*numDepVars;
-          eF(kk) += eFj(k);
-          eS(kk) += eSj(k);
-          if (useDiagMassMat)
-            eCMatD.diagonal()(kk) += eCjd;
-          else {
-            for (int l = 0; l < nen; l++) {
-              size_t ll = j + l*numDepVars;
-              eCMat(kk, ll) += eCj(k, l);
-            }
-          }
+      eSX += sIp * N.col(i).transpose() * jacWt;
+      eFX += fIp * dNdx.transpose() * jacWt;
+      if(isFullCMat)
+        eCX += pdeCoeffs.c* upi* N.col(i).transpose() * jacWt;
+      else {
+        if (useDiagMassMat) {
+          eCX += pdeCoeffs.c * oNen * jacWt / (double)nen; // lump mass
         }
+        else
+          eCX += (pdeCoeffs.c.array() * upi.array()).matrix() * N.col(i).transpose() * jacWt;
       }
-    }
+#if 0
+      printMat(upi, "upi");
+      printMat(N.col(i).transpose(), "N");
+      printMat(eCX, "eCX");
+#endif
+    } // end integration point loop
 #if DEBUG_MATS
     cout << "eF: " << eF.transpose() << endl;
     if (useDiagMassMat)
       cout << "eCMatD=" << eCMatD.diagonal().transpose() << endl;
     else
       cout << "eCMat\n" << eCMat << endl;
-#endif    
-    if (useDiagMassMat)
-      eC = eCMatD*eUp;
-    else
-      eC = eCMat*eUp;
+#endif
+    if (useDiagMassMat) {
+      eCX = eCX.array() * up2e.array();
+    }
     PDEModel::assembleElemVec(eDofs, nnfee, numDepVars, eC, Cxd);
-    //cout << "eF=" << eF.transpose() << endl;
+    //printMat(eC, "eC");
+    //printMat(eCX, "eCX");
     PDEModel::assembleElemVec(eDofs, nnfee, numDepVars, eF, F);
     PDEModel::assembleElemVec(eDofs, nnfee, numDepVars, eS, S);
   }
-  //cout << "F\n" << F << endl;
 }
 
   template<class T, class TR>
@@ -588,6 +573,7 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
     //cout << "u2=" << u2.transpose() << endl;
     //cout << "up2=" << up2.transpose() << endl;
     RealMatrix u2e(numDepVars, nen);
+    RealVector dNdx(nen), ui(numDepVars), upi(numDepVars), dUiDx(numDepVars);
 
 #if 0
     cout << "intWts=" << intWts.transpose() << endl;
@@ -606,16 +592,14 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
     RealVector &x = mesh;
     int ip = 0;
     for (int e = 0; e < ne; e++) {
-      const PDEElement &elem = pdeModel->element(e);
       pdeModel->getDofIndicesForElem(e, eDofs);
       PDEModel::globalToElemVec(eDofs, u2, u2e);
       //cout << "u2e=" << u2e << endl;
       double L = x(e + 1) - x(e);
       double jac = L / 2;
       for (int i = 0; i < numIntPts; i++) {
-        double jacWt = jac*intWts(i);
         xPts(ip) = x(e)*N(0, i) + x(e + 1)*N(1, i);
-        auto dNdx = dN.col(i) / jac;
+        dNdx = dN.col(i) / jac;
         uPts.col(ip) = u2e*N.col(i);
         duPts.col(ip) = u2e*dNdx;
         ip++;
@@ -626,38 +610,31 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
     pdeCoeffs.s.resize(numDepVars, numXPts);
     pde.evalPDE(xPts, t, uPts, duPts, v, vDot, pdeCoeffs);
 
-    RealMatrix eCMat = RealMatrix::Zero(numElemEqns, numElemEqns);
-    Eigen::DiagonalMatrix<double, Eigen::Dynamic> eCMatD(numElemEqns);
     RealVector eF = RealVector::Zero(numElemEqns);
+    MapMat eFX(eF.data(), numDepVars, nen);
     RealVector eS = RealVector::Zero(numElemEqns);
+    MapMat eSX(eS.data(), numDepVars, nen);
     RealVector eC = RealVector::Zero(numElemEqns);
-    RealMatrix eCj(nen, nen);
-    RealVector eFj(nen), eSj(nen);
+    MapMat eCX(eC.data(), numDepVars, nen);
     RealMatrix up2e(numDepVars, nen);
     Eigen::Map<RealVector> eUp(up2e.data(), numElemEqns);
-
-    //cout << "xPts=" << xPts.transpose() << endl;
+    RealMatrix oNen = RealMatrix::Ones(1, nen);
 
     ip = 0; 
-    size_t eInd = 0;
     for (int e = 0; e < ne; e++) {
-      const PDEElement &elem = pdeModel->element(e);
       pdeModel->getDofIndicesForElem(e, eDofs);
       PDEModel::globalToElemVec(eDofs, up2, up2e);
-      if (useDiagMassMat)
-        eCMatD.setZero();
-      else
-        eCMat.setZero();
       eF.setZero();
       eS.setZero();
+      eC.setZero();
       double L = x(e + 1) - x(e);
-      //fprintf('elem=%d\n', e);
       double jac = L / 2;
       for (int i = 0; i < numIntPts; i++) {
         // assume two node elements
         double jacWt = jac*intWts(i);
         double xi = xPts(ip);
-        auto dNdx = dN.col(i) / jac;
+        dNdx = dN.col(i) / jac;
+        upi = up2e * N.col(i);
         Eigen::Ref<Eigen::VectorXd> cIp = pdeCoeffs.c.col(ip);
         Eigen::Ref<Eigen::VectorXd> sIp = pdeCoeffs.s.col(ip);
         Eigen::Ref<Eigen::VectorXd> fIp = pdeCoeffs.f.col(ip);
@@ -670,43 +647,30 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
         sIp *= xm;
         fIp *= xm;
 
-        for (int j = 0; j < numDepVars; j++) {
-          double eCjd;
-          if (useDiagMassMat)
-            eCjd = cIp(j)*jacWt / (double)nen; // lump mass
-          else
-            eCj = N.col(i)*cIp(j)*N.col(i).transpose()*jacWt;
-          //eCMat += eCj;
-          eFj = dNdx*fIp(j)*jacWt;
-          //eF += eFj;
-          eSj = N.col(i)*sIp(j)*jacWt;
-          //eS += eSj;
-          for (int k = 0; k < nen; k++) {
-            size_t kk = j + k*numDepVars;
-            eF(kk) += eFj(k);
-            eS(kk) += eSj(k);
-            if (useDiagMassMat)
-              eCMatD.diagonal()(kk) += eCjd;
-            else {
-              for (int l = 0; l < nen; l++) {
-                size_t ll = j + l*numDepVars;
-                eCMat(kk, ll) += eCj(k, l);
-              }
-            }
-          }
-        }
+        eSX += sIp * N.col(i).transpose() * jacWt;
+        eFX += fIp * dNdx.transpose() * jacWt;
+        if (useDiagMassMat)
+          eCX += cIp * oNen * jacWt / (double)nen; // lump mass
+        else
+          eCX += (cIp.array() * upi.array()).matrix() * N.col(i).transpose() * jacWt;
+#if 0
+        printMat(cIp, "cIp");
+        printMat(upi, "upi");
+        printMat(N.col(i).transpose(), "N");
+        printMat(eCX, "eCX");
+#endif
         ip++;
-      }
+      } // end integration point loop
 #if DEBUG_MATS
       cout << "eF: " << eF.transpose() << endl;
       cout << "eCMat\n" << eCMat << endl;
 #endif
-      if (useDiagMassMat)
-        eC = eCMatD*eUp;
-      else
-        eC = eCMat*eUp;
+      if (useDiagMassMat) {
+        eCX = eCX.array() * up2e.array();
+      }
       PDEModel::assembleElemVec(eDofs, nnfee, numDepVars, eC, Cxd);
       //cout << "eF=" << eF.transpose() << endl;
+      //printMat(eC, "eC");
       PDEModel::assembleElemVec(eDofs, nnfee, numDepVars, eF, F);
       PDEModel::assembleElemVec(eDofs, nnfee, numDepVars, eS, S);
     }
@@ -863,7 +827,7 @@ void PDE1dImpl::calcGlobalEqnsNonVectorized(double t, T &u, T &up,
 void PDE1dImpl::testMats(const RealVector &y0)
 {
   const int diag = options.getEqnDiagnostics();
-  cout << "numFEEqns=" << numFEEqns << endl;
+  pdePrintf("Begin testMats: numFEEqns = %d\n", numFEEqns);
   cout << "totalNumEqns=" << totalNumEqns << endl;
   SunVector u(totalNumEqns), up(totalNumEqns), R(totalNumEqns);
 #if 0
@@ -873,7 +837,8 @@ void PDE1dImpl::testMats(const RealVector &y0)
   }
 #elif 1
   u = y0;
-  up = Eigen::VectorXd::LinSpaced(totalNumEqns, 0, totalNumEqns-1);
+  double upEnd = static_cast<double>(totalNumEqns - 1);
+  up = Eigen::VectorXd::LinSpaced(totalNumEqns, 0, upEnd);
 #else
   u = y0;
   up.setOnes();
@@ -1171,7 +1136,6 @@ void PDE1dImpl::checkIncreasing(const RealVector &v,
 void PDE1dImpl::checkCoeffs(const PDE1dDefn::PDECoeff &coeffs)
 {
   for (int j = 0; j < coeffs.c.cols(); j++) {
-    int zeroCol = -1;
     bool allZero = true;
     for (int i = 0; i < coeffs.c.rows(); i++) {
       if (coeffs.c.col(j)[i] != 0) {
@@ -1458,12 +1422,14 @@ void PDE1dImpl::interpolateGlobalVecToViewMesh(const T &gVec,
 
 template<class T>
 void PDE1dImpl::printSystemVector(const T& v, const char* name) {
-  cout << name << '\n';
+  //cout << name << '\n';
   if (!numODE) {
     auto np = numFEEqns / numDepVars;
     Eigen::Map<const Eigen::MatrixXd> mv(v.data(), numDepVars, np);
     cout << mv << '\n';
+    printMat(mv, name);
   }
   else
-    cout << v.transpose() << '\n';
+    //cout << v.transpose() << '\n';
+    printMat(v.transpose(), name);
 }

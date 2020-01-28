@@ -15,11 +15,10 @@
 
 #include <iostream>
 #include <stdio.h>
+#include <cstdarg>
 
 using std::cout;
 using std::endl;
-
-#include <boost/timer.hpp>
 
 #ifdef _MSC_VER
 // octave incorrectly defines mwSize
@@ -30,6 +29,18 @@ using std::endl;
 #include "PDE1dMexInt.h"
 #include "MexInterface.h"
 #include "PDE1dException.h"
+
+void pdePrintf(const char* format, ...)
+{
+  va_list ap;
+  va_start(ap, format);
+  char msg[4096];
+  vsprintf(msg, format, ap);
+  va_end(ap);
+  // matlab mex connects cout to console but not printf
+  //std::cout << msg;
+  mexPrintf(msg);
+}
 
 namespace {
 
@@ -189,8 +200,16 @@ void PDE1dMexInt::evalPDE(double x, double t,
   }
   const mxArray *funcInp[] = { pdefun, mxX1, mxT, mxVec1, mxVec2,
     mxV, mxVDot };
-  RealMatrix *outArgs[] = { &pde.c, &pde.f, &pde.s };
-  callMatlab(funcInp, nargin, outArgs, nargout);
+  callMatlab(funcInp, nargin, nargout);
+  mxArray* c = matOutArgs[0];
+
+  if (mxGetM(c) == numPDE && mxGetN(c) == numPDE)
+    pde.c.resize(numPDE, numPDE); // handle optional coupled mass matrix
+  processReturnedArg(pdefun, 0, c, &pde.c);
+  processReturnedArg(pdefun, 1, matOutArgs[1], &pde.f);
+  processReturnedArg(pdefun, 2, matOutArgs[2], &pde.s);
+  for (int i = 0; i < nargout; i++)
+    destroy(matOutArgs[i]);
 }
 
 void PDE1dMexInt::evalPDE(const RealVector &x, double t,
@@ -284,21 +303,7 @@ void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
   callMatlab(inArgs, nargin, nargout);
   for (int i = 0; i < nargout; i++) {
     mxArray *a = matOutArgs[i];
-    if (! a)
-      pdeErrMsgIdAndTxt("pde1d:mexCallMATLAB:arg", "Error in mexCallMATLAB arg.");
-    size_t retLen = mxGetNumberOfElements(a);
-    size_t exLen = outArgs[i]->size();
-    if (retLen != exLen) {
-      char msg[1024];
-      std::string funcName = getFuncNameFromHandle(inArgs[0]);
-      size_t m = mxGetM(a), n = mxGetN(a);
-      sprintf(msg, "In the call to user-defined function:\n\"%s\"\n"
-        "returned entry %d had size (%zd x %zd) but a vector of size (%zd x 1)"
-        " was expected.", funcName.c_str(), i + 1, m, n, exLen);
-      pdeErrMsgIdAndTxt("pde1d:mexCallMATLAB:arglen", msg);
-    }
-    checkMxType(a, i, inArgs[0]);
-    std::copy_n(mxGetPr(a), retLen, outArgs[i]->data());
+    processReturnedArg(inArgs[0], i, a, outArgs[i]);
     destroy(a);
   }
 }
@@ -311,22 +316,7 @@ void PDE1dMexInt::callMatlab(const mxArray *inArgs[], int nargin,
     mxArray *a = matOutArgs[i];
     if (!a)
       pdeErrMsgIdAndTxt("pde1d:mexCallMATLAB:arg", "Error in mexCallMATLAB arg.");
-    size_t retRows = mxGetM(a);
-    size_t retCols = mxGetN(a);
-    size_t exRows = outArgs[i]->rows();
-    size_t exCols = outArgs[i]->cols();
-    if (retRows != exRows || retCols != exCols) {
-      char msg[1024];
-      std::string funcName = getFuncNameFromHandle(inArgs[0]);
-      int m = mxGetM(a), n = mxGetN(a);
-      sprintf(msg, "In the call to user-defined function, \"%s\"\n"
-        "returned entry %d had size (%zd x %zd) but a matrix of size (%zd x %zd)"
-        " was expected.", funcName.c_str(), i + 1, retRows, retCols, 
-        exRows, exCols);
-      pdeErrMsgIdAndTxt("pde1d:mexCallMATLAB:arglen", msg);
-    }
-    checkMxType(a, i, inArgs[0]);
-    std::copy_n(mxGetPr(a), retRows*retCols, outArgs[i]->data());
+    processReturnedArg(inArgs[0], i, a, outArgs[i]);
     destroy(a);
   }
 }
@@ -362,6 +352,37 @@ void PDE1dMexInt::checkMxType(const mxArray *a, int argIndex, const mxArray *fun
       funcName.c_str(), argIndex + 1);
     pdeErrMsgIdAndTxt("pde1d:mexCallMATLAB:argIsComplex", msg);
   }
+
+}
+
+template<typename T>
+void PDE1dMexInt::processReturnedArg(const mxArray* callingFunc,
+  int argNum, const mxArray* retArg, T* outArg) {
+  if (!retArg)
+    pdeErrMsgIdAndTxt("pde1d:mexCallMATLAB:arg", "Error in mexCallMATLAB arg.");
+  size_t retRows = mxGetM(retArg);
+  size_t retCols = mxGetN(retArg);
+  size_t exRows = outArg->rows();
+  size_t exCols = outArg->cols();
+  bool dimsOK = false;
+  bool isVec = exCols == 1;
+  if (isVec)
+    dimsOK = (retRows==1 || retCols==1) && (
+      retRows * retCols == exRows * exCols);
+  else
+    dimsOK = retRows == exRows && retCols == exCols;
+  if (! dimsOK) {
+    char msg[1024];
+    std::string funcName = getFuncNameFromHandle(callingFunc);
+    size_t m = mxGetM(retArg), n = mxGetN(retArg);
+    sprintf(msg, "In the call to user-defined function:\n\"%s\"\n"
+      "returned entry %d had size (%zd x %zd) but a matrix of size (%zd x %zd)"
+      " was expected.", funcName.c_str(), argNum + 1, retRows, retCols,
+      exRows, exCols);
+    pdeErrMsgIdAndTxt("pde1d:mexCallMATLAB:arglen", msg);
+  }
+  checkMxType(retArg, argNum, callingFunc);
+  std::copy_n(mxGetPr(retArg), retRows*retCols, outArg->data());
 }
 
 

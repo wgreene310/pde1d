@@ -35,6 +35,7 @@ void print(N_Vector v, const char *title) {
     pdePrintf("\n");
 }
 
+#if 0
 void pdePrintf(const char * format, ...)
 {
   va_list ap;
@@ -43,8 +44,10 @@ void pdePrintf(const char * format, ...)
   vsprintf(msg, format, ap);
   va_end(ap);
   // matlab mex connects cout to console but not printf
-  std::cout << msg;
+  //std::cout << msg;
+  printf(msg);
 }
+#endif
 
 Eigen::VectorXd linspace(double start, double end, int n)
 {

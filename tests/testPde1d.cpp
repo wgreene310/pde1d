@@ -1,3 +1,5 @@
+#include <cstdarg>
+
 #include <boost/timer.hpp>
 
 #include "ExampleHeatCond.h"
@@ -6,6 +8,18 @@
 #include "PDESolution.h"
 #include "PDEModel.h"
 #include "SunVector.h"
+
+void pdePrintf(const char* format, ...)
+{
+  va_list ap;
+  va_start(ap, format);
+  char msg[4096];
+  vsprintf(msg, format, ap);
+  va_end(ap);
+  // matlab mex connects cout to console but not printf
+  //std::cout << msg;
+  printf(msg);
+}
 
 void PDE1dWarningMsg(const char *id, const char *msg) {
   printf("Warning: %s, %s\n", id, msg);

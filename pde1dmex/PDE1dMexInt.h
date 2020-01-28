@@ -116,6 +116,9 @@ private:
   void callMatlab(const mxArray *inArgs[], int nargin, int nargout);
   static std::string getFuncNameFromHandle(const mxArray *funcHandle);
   void checkMxType(const mxArray *a, int argIndex, const mxArray *funcHandle);
+  template<typename T>
+  void processReturnedArg(const mxArray* callingFunc,
+    int argNum, const mxArray* retArg, T *outArg);
   static void destroy(mxArray *a) {
     // not sure if mex does this test?
     if (a)
