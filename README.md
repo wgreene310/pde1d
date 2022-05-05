@@ -20,7 +20,7 @@ a cylindrical or spherical coordinate system and the left end of the domain
 starts at zero, `pdepe` uses special approximation functions to account
 for the singularity at this point; `pde1d` does not.
 
-Several examples and basic documentation are included.
+Several examples and basic documentation are included in the [user guide](docs/pde1d_manual.pdf).
 An excellent introduction to solving PDE with the pdepe function is
 Professor Howard's note,
 [Partial Differential Equations in MATLAB 7.0](http://www.math.tamu.edu/~phoward/m442/pdemat.pdf). 
